@@ -1,0 +1,16 @@
+{
+  "welcome": "Welcome to Blogify!",
+  "@welcome": {},
+  "readBlogs": "Read amazing blogs",
+  "@readBlogs": {},
+  "writePublish": "Write and publish your own",
+  "@writePublish": {},
+  "saveFavorites": "Save your favorites",
+  "@saveFavorites": {},
+  "shareWorld": "Share with the world",
+  "@shareWorld": {},
+  "getStarted": "Get started now!",
+  "@getStarted": {},
+  "next": "Next",
+  "@next": {}
+}
