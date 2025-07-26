@@ -105,7 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
                         return null;
                       },
-                      cursorHeight: 18,
                     ),
                     const SizedBox(height: 16),
 
@@ -117,6 +116,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         labelText: 'Password',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10.0,
+                          horizontal: 12.0,
                         ),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(

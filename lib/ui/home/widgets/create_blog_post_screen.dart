@@ -5,7 +5,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 class CreatePostBlogScreen extends StatefulWidget {
-  const CreatePostBlogScreen({super.key});
+  final String? title;
+  final String? category;
+  final String? postId;
+
+  const CreatePostBlogScreen({
+    super.key,
+    this.title,
+    this.category,
+    this.postId,
+  });
 
   @override
   State<CreatePostBlogScreen> createState() => _CreatePostBlogScreenState();
@@ -14,6 +23,7 @@ class CreatePostBlogScreen extends StatefulWidget {
 class _CreatePostBlogScreenState extends State<CreatePostBlogScreen> {
   final titleController = TextEditingController();
   final contentController = TextEditingController();
+
   final List<String> categories = [
     'Tech',
     'Health',
@@ -26,6 +36,16 @@ class _CreatePostBlogScreenState extends State<CreatePostBlogScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.title != null) {
+      titleController.text = widget.title!;
+    }
+    if (widget.category != null && widget.category?.trim() != '') {
+      selectedCategory = widget.category;
+    }
+    if (widget.postId != null && widget.postId?.trim() != '') {
+      context.read<HomeBloc>().add(LoadBlogDetails(widget.postId!));
+    }
+    print('PostId: ${widget.postId}');
     titleController.addListener(_onFormChange);
     contentController.addListener(_onFormChange);
   }
@@ -47,11 +67,33 @@ class _CreatePostBlogScreenState extends State<CreatePostBlogScreen> {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(state.message)));
+        } else if (state is BlogDetailLoadingSuccess) {
+          contentController.text = state.postContent;
+        } else if (state is BlogDetailLoadingFailure) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
+        } else if (state is UpdatePostSuccess) {
+          GoRouter.of(context).pushNamed(Routes.home);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Post updated successfully!')),
+          );
+        } else if (state is UpdatePostFailure) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
       },
       child: SafeArea(
         child: Scaffold(
-          appBar: AppBar(title: const Text('Create Blog Post')),
+          appBar: AppBar(
+            title: Text(
+              widget.postId?.trim() != ''
+                  ? 'Edit Blog Post'
+                  : 'Create Blog Post',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
           body: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -91,17 +133,37 @@ class _CreatePostBlogScreenState extends State<CreatePostBlogScreen> {
                   builder: (context, state) {
                     return ElevatedButton(
                       onPressed:
-                          (selectedCategory == null ||
-                              state is PublishPostRequested)
+                          (titleController.text.isEmpty ||
+                              selectedCategory == null ||
+                              contentController.text.isEmpty ||
+                              state is PublishPostRequested ||
+                              state is UpdatePostRequested)
                           ? null
                           : () {
-                              context.read<HomeBloc>().add(
-                                PublishPost(
-                                  title: titleController.text.trim(),
-                                  content: contentController.text.trim(),
-                                  category: selectedCategory!,
-                                ),
-                              );
+                              final title = titleController.text.trim();
+                              final content = contentController.text.trim();
+                              final category = selectedCategory!;
+
+                              if (widget.postId?.trim().isNotEmpty ?? false) {
+                                // Update existing post
+                                context.read<HomeBloc>().add(
+                                  UpdatePost(
+                                    postId: widget.postId!.trim(),
+                                    title: title,
+                                    content: content,
+                                    category: category,
+                                  ),
+                                );
+                              } else {
+                                // Create new post
+                                context.read<HomeBloc>().add(
+                                  PublishPost(
+                                    title: title,
+                                    content: content,
+                                    category: category,
+                                  ),
+                                );
+                              }
                             },
                       style: Theme.of(context).elevatedButtonTheme.style
                           ?.copyWith(
@@ -116,9 +178,15 @@ class _CreatePostBlogScreenState extends State<CreatePostBlogScreen> {
                               return Colors.deepPurpleAccent;
                             }),
                           ),
-                      child: state is PublishPostRequested
+                      child:
+                          state is PublishPostRequested ||
+                              state is UpdatePostRequested
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Publish'),
+                          : Text(
+                              widget.postId?.trim() != ''
+                                  ? 'Update'
+                                  : 'Publish',
+                            ),
                     );
                   },
                 ),

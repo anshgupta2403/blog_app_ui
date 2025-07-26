@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:blog_app/data/models/blog_post_model.dart';
+import 'package:blog_app/data/models/blog_result_model.dart';
 import 'package:blog_app/data/models/comment_model.dart';
 import 'package:blog_app/data/service/blog_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BlogRepository {
   final BlogService _blogService;
@@ -82,5 +86,71 @@ class BlogRepository {
       currentUserId: currentUserId,
       authorId: authorId,
     );
+  }
+
+  Future<List<BlogPost>> searchBlogsByTitle(String query, String category) {
+    return _blogService.searchBlogsByTitle(query, category);
+  }
+
+  Future<BlogQueryResult> getUserBlogs({
+    required String? uid,
+    DocumentSnapshot? lastDoc,
+    int? limit,
+  }) {
+    return _blogService.getUserBlogs(uid: uid, lastDoc: lastDoc, limit: limit);
+  }
+
+  Future<BlogQueryResult> fetchUserBlogs({
+    required String? uid,
+    int limit = 10,
+    DocumentSnapshot? startAfterDoc,
+    List<String>? categories,
+    String? sortBy,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    return _blogService.fetchUserBlogs(
+      uid: uid,
+      limit: limit,
+      startAfterDoc: startAfterDoc,
+      categories: categories,
+      sortBy: sortBy,
+      startDate: startDate,
+      endDate: endDate,
+    );
+  }
+
+  Future<void> deleteBlog(String postId) {
+    return _blogService.deleteBlog(postId);
+  }
+
+  Future<void> updatePost({
+    required String title,
+    required String category,
+    required String content,
+    required String postId,
+  }) async {
+    await _blogService.updatePost(
+      title: title,
+      category: category,
+      content: content,
+      postId: postId,
+    );
+  }
+
+  Future<void> updateProfile({
+    required String name,
+    required String? uid,
+    required File? profileImageUrl,
+  }) async {
+    await _blogService.updateProfile(
+      name: name,
+      uid: uid,
+      profileImageUrl: profileImageUrl,
+    );
+  }
+
+  Future<void> signout() async {
+    await _blogService.signout();
   }
 }

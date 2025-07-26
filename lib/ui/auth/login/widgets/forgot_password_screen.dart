@@ -68,6 +68,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       prefixIcon: const Icon(Icons.email_outlined),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 10.0,
+                        horizontal: 12.0,
+                      ),
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {

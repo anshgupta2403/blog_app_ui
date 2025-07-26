@@ -13,7 +13,7 @@ class AuthRepository {
       uid: user?.uid,
       name: user?.displayName,
       email: user?.email,
-      photoUrl: user?.photoURL,
+      profileImageUrl: user?.photoURL,
     );
   }
 
@@ -23,7 +23,7 @@ class AuthRepository {
       uid: user?.uid,
       name: user?.displayName,
       email: user?.email,
-      photoUrl: user?.photoURL,
+      profileImageUrl: user?.photoURL,
     );
   }
 
@@ -37,7 +37,7 @@ class AuthRepository {
       uid: user?.uid,
       name: user?.displayName,
       email: user?.email,
-      photoUrl: user?.photoURL,
+      profileImageUrl: user?.photoURL,
     );
   }
 

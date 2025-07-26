@@ -8,4 +8,6 @@ abstract final class Routes {
       '/otp-verification-screen/:email/:password';
   static const blogPost = '/blog-post';
   static const blogDetails = '/blog-details';
+  static const profileScreen = '/profile-screen';
+  static const editProfile = '/edit-profile';
 }

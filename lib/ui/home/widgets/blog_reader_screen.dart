@@ -1,5 +1,6 @@
 import 'package:blog_app/data/models/blog_post_model.dart';
 import 'package:blog_app/data/models/comment_model.dart';
+import 'package:blog_app/ui/core/utils/common_utils.dart';
 import 'package:blog_app/ui/core/utils/session_manager_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -45,12 +46,20 @@ class _BlogReaderScreenState extends State<BlogReaderScreen> {
           // Custom AppBar
           SafeArea(
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.deepPurple),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
-                const Spacer(),
+                Text(
+                  widget.summary.category,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.share, color: Colors.deepPurple),
                   onPressed: () {
@@ -66,18 +75,20 @@ class _BlogReaderScreenState extends State<BlogReaderScreen> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               children: [
-                // Title
                 Text(
                   summary.title,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 8),
-
-                // Author Info
+                Text(
+                  CommonUtil.formatRelativeDate(summary.createdAt),
+                  style: const TextStyle(color: Colors.grey, fontSize: 16),
+                ),
+                SizedBox(height: 10),
                 Row(
                   children: [
                     const CircleAvatar(child: Icon(Icons.person)),
@@ -136,10 +147,6 @@ class _BlogReaderScreenState extends State<BlogReaderScreen> {
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 20),
-
-                // Blog Content
                 BlocBuilder<HomeBloc, HomeState>(
                   buildWhen: (prev, curr) =>
                       curr is BlogDetailLoading ||
@@ -162,13 +169,21 @@ class _BlogReaderScreenState extends State<BlogReaderScreen> {
                     return const SizedBox();
                   },
                 ),
-
                 const SizedBox(height: 24),
                 const Divider(),
                 const SizedBox(height: 8),
-                const Text(
-                  'Comments',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Comments (${widget.summary.numComments})',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    _StickyBottomBar(postId: widget.postId, summary: summary),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 BlocBuilder<HomeBloc, HomeState>(
@@ -188,7 +203,6 @@ class _BlogReaderScreenState extends State<BlogReaderScreen> {
                     }
                   },
                 ),
-                const SizedBox(height: 100),
               ],
             ),
           ),
@@ -199,10 +213,6 @@ class _BlogReaderScreenState extends State<BlogReaderScreen> {
       ),
 
       // Bottom bar
-      bottomNavigationBar: _StickyBottomBar(
-        postId: widget.postId,
-        summary: widget.summary,
-      ),
     );
   }
 }
@@ -302,58 +312,40 @@ class _StickyBottomBarState extends State<_StickyBottomBar> {
 
   @override
   Widget build(BuildContext context) {
-    return BottomAppBar(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            BlocConsumer<HomeBloc, HomeState>(
-              listener: (context, state) {
-                if (state is PostLikeUpdated) {
-                  final newLikeStatus = state.isLiked;
-                  if (_isLiked != newLikeStatus) {
-                    setState(() {
-                      _isLiked = newLikeStatus;
-                      _likeCount += newLikeStatus ? 1 : -1;
-                    });
-                  }
-                }
-              },
-              builder: (context, state) {
-                return IconButton(
-                  icon: Icon(
-                    _isLiked ? Icons.favorite : Icons.favorite_border,
-                    color: Colors.deepPurple,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        BlocConsumer<HomeBloc, HomeState>(
+          listener: (context, state) {
+            if (state is PostLikeUpdated) {
+              final newLikeStatus = state.isLiked;
+              if (_isLiked != newLikeStatus) {
+                setState(() {
+                  _isLiked = newLikeStatus;
+                  _likeCount += newLikeStatus ? 1 : -1;
+                });
+              }
+            }
+          },
+          builder: (context, state) {
+            return IconButton(
+              icon: Icon(
+                _isLiked ? Icons.favorite : Icons.favorite_border,
+                color: Colors.deepPurple,
+              ),
+              onPressed: () {
+                context.read<HomeBloc>().add(
+                  ToggleLikePost(
+                    widget.postId,
+                    SessionManager().currentUser?.uid,
                   ),
-                  onPressed: () {
-                    context.read<HomeBloc>().add(
-                      ToggleLikePost(
-                        widget.postId,
-                        SessionManager().currentUser?.uid,
-                      ),
-                    );
-                  },
                 );
               },
-            ),
-            Text('$_likeCount'),
-            const SizedBox(width: 16),
-            IconButton(
-              icon: const Icon(Icons.comment, color: Colors.deepPurple),
-              onPressed: () {},
-            ),
-            Text('${widget.summary.numComments}'),
-            const Spacer(),
-            IconButton(
-              icon: const Icon(Icons.share, color: Colors.deepPurple),
-              onPressed: () {
-                Share.share('${widget.summary.title}\n\nRead more in the app!');
-              },
-            ),
-          ],
+            );
+          },
         ),
-      ),
+        Text('$_likeCount'),
+      ],
     );
   }
 }

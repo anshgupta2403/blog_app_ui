@@ -1,10 +1,19 @@
+import 'dart:io';
+
+import 'package:blog_app/data/models/app_user_model.dart';
 import 'package:blog_app/data/models/blog_post_model.dart';
+import 'package:blog_app/data/models/blog_result_model.dart';
 import 'package:blog_app/data/models/comment_model.dart';
+import 'package:blog_app/ui/core/utils/session_manager_utils.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class BlogService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _firebaseStorage = FirebaseStorage.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   DocumentSnapshot? _lastVisible;
 
   Future<void> publishPost({
@@ -26,7 +35,7 @@ class BlogService {
         .collection('posts_summary')
         .doc();
 
-    await FirebaseFirestore.instance.runTransaction((txn) async {
+    await _firestore.runTransaction((txn) async {
       txn.set(postRef, {
         'title': title,
         'category': category,
@@ -36,6 +45,7 @@ class BlogService {
         'numLikes': 0,
         'numComments': 0,
         'preview': content.length > 100 ? content.substring(0, 100) : content,
+        'titleLowercase': title.toLowerCase(),
       });
 
       txn.set(
@@ -50,22 +60,14 @@ class BlogService {
     required int limit,
     required bool isRefresh,
   }) async {
-    if (isRefresh) _lastVisible = null;
-
     Query query = _firestore
         .collection('posts_summary')
         .where('category', isEqualTo: category)
         .orderBy('createdAt', descending: true)
         .limit(limit);
 
-    if (_lastVisible != null) {
-      query = query.startAfterDocument(_lastVisible!);
-    }
-
     final snapshot = await query.get();
-    if (snapshot.docs.isNotEmpty) {
-      _lastVisible = snapshot.docs.last;
-    }
+
     return snapshot.docs.map((doc) => BlogPost.fromSnapshot(doc)).toList();
   }
 
@@ -262,6 +264,147 @@ class BlogService {
         .doc(authorId)
         .get();
     return doc.exists;
+  }
+
+  Future<List<BlogPost>> searchBlogsByTitle(
+    String query,
+    String category,
+  ) async {
+    final snapshot = await _firestore
+        .collection('posts_summary')
+        .where('category', isEqualTo: category)
+        .where('titleLowercase', isGreaterThanOrEqualTo: query.toLowerCase())
+        .where('titleLowercase', isLessThan: '${query.toLowerCase()}\uf8ff')
+        .orderBy('titleLowercase')
+        .get();
+
+    return snapshot.docs.map((doc) => BlogPost.fromSnapshot(doc)).toList();
+  }
+
+  Future<BlogQueryResult> getUserBlogs({
+    required String? uid,
+    DocumentSnapshot? lastDoc,
+    int? limit = 10,
+  }) async {
+    Query query = _firestore
+        .collection('posts_summary')
+        .where('uid', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .limit(limit!);
+
+    final snapshot = await query.get();
+    final blogs = snapshot.docs
+        .map((doc) => BlogPost.fromSnapshot(doc))
+        .toList();
+
+    return BlogQueryResult(
+      blogs: blogs,
+      lastDoc: snapshot.docs.isNotEmpty ? snapshot.docs.last : null,
+      hasMore: snapshot.docs.length == limit,
+    );
+  }
+
+  Future<BlogQueryResult> fetchUserBlogs({
+    required String? uid,
+    int limit = 10,
+    DocumentSnapshot? startAfterDoc,
+    List<String>? categories,
+    String? sortBy,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    Query query = _firestore
+        .collection('posts_summary')
+        .where('uid', isEqualTo: uid);
+
+    if (categories != null && categories.isNotEmpty) {
+      query = query.where('category', whereIn: categories);
+    }
+
+    if (startDate != null) {
+      query = query.where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+      );
+    }
+
+    if (endDate != null) {
+      query = query.where(
+        'createdAt',
+        isLessThanOrEqualTo: Timestamp.fromDate(endDate),
+      );
+    }
+
+    if (sortBy == 'Popular') {
+      query = query.orderBy('numLikes', descending: true);
+    } else {
+      query = query.orderBy('createdAt', descending: true);
+    }
+
+    if (startAfterDoc != null) {
+      query = query.startAfterDocument(startAfterDoc);
+    }
+
+    final snapshot = await query.limit(limit).get();
+
+    final blogs = snapshot.docs
+        .map((doc) => BlogPost.fromSnapshot(doc))
+        .toList();
+
+    return BlogQueryResult(
+      blogs: blogs,
+      lastDoc: snapshot.docs.isNotEmpty ? snapshot.docs.last : null,
+      hasMore: snapshot.docs.length == limit,
+    );
+  }
+
+  Future<void> deleteBlog(String postId) async {
+    final docRef = _firestore.collection('posts_summary').doc(postId);
+    await docRef.delete();
+  }
+
+  Future<void> updatePost({
+    required String title,
+    required String category,
+    required String content,
+    required String postId,
+  }) async {
+    final postRef = _firestore.collection('posts_summary').doc(postId);
+    await _firestore.runTransaction((txn) async {
+      txn.update(postRef, {'title': title, 'category': category});
+
+      txn.update(_firestore.collection('posts_content').doc(postId), {
+        'content': content,
+      });
+    });
+  }
+
+  Future<void> updateProfile({
+    required String name,
+    required String? uid,
+    required File? profileImageUrl,
+  }) async {
+    String imageUrl;
+
+    final ref = _firebaseStorage.ref().child('user_profiles/$uid.jpg');
+    await ref.putFile(profileImageUrl!);
+    imageUrl = await ref.getDownloadURL();
+
+    await _firestore.collection('users').doc(uid).update({
+      'name': name,
+      'profileImageUrl': imageUrl,
+    });
+    _updateCurrentUser(name, imageUrl);
+  }
+
+  void _updateCurrentUser(String name, String imageUrl) {
+    AppUser? currentUser = SessionManager().currentUser;
+    currentUser = currentUser?.copyWith(name: name, profileImageUrl: imageUrl);
+    SessionManager().setUser(currentUser!);
+  }
+
+  Future<void> signout() async {
+    await _auth.signOut();
   }
 
   bool get hasMore => _lastVisible != null;

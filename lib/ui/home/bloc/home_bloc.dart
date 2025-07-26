@@ -1,17 +1,23 @@
+import 'dart:io';
+
+import 'package:blog_app/data/models/app_user_model.dart';
 import 'package:blog_app/data/models/blog_post_model.dart';
 import 'package:blog_app/data/models/comment_model.dart';
 import 'package:blog_app/data/repositories/blog_repository.dart';
+import 'package:blog_app/ui/core/utils/session_manager_utils.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:rxdart/rxdart.dart';
 
 part 'home_event.dart';
 part 'home_state.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final BlogRepository _blogRepository;
-  final Map<String, List<BlogPost>> _categoryBlogs = {};
-  final List<BlogPost> _blogs = [];
-  List<BlogPost> get blogs => _blogs;
+  DocumentSnapshot? _lastDoc;
+  List<BlogPost> _blogs = [];
+
   HomeBloc(this._blogRepository) : super(HomeInitial()) {
     on<PublishPost>(_onPublishPost);
     on<LoadBlogs>(_onLoadBlogs);
@@ -23,6 +29,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<FollowAuthor>(_onFollowAuthor);
     on<UnfollowAuthor>(_onUnfollowAuthor);
     on<CheckFollowStatus>(_onCheckFollowStatus);
+    on<SearchQueryChanged>(
+      _onQueryChanged,
+      transformer: debounce(const Duration(milliseconds: 500)),
+    );
+    on<FetchInitialUserBlogs>(_onLoadUserBlogs);
+    on<FetchMoreUserBlogs>(_onLoadMore);
+    on<ApplyFilters>(_onApplyFilters);
+    on<DeleteBlog>(_onDeleteBlog);
+    on<UpdatePost>(_onUpdatePost);
+    on<UpdateProfile>(_onUpdateProfile);
+    on<SignOut>(_onSignOut);
   }
 
   Future<void> _onPublishPost(
@@ -44,22 +61,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   Future<void> _onLoadBlogs(LoadBlogs event, Emitter<HomeState> emit) async {
-    final category = event.category;
-
-    if (event.isRefresh || !_categoryBlogs.containsKey(category)) {
-      emit(BlogsLoading());
-      try {
-        final blogs = await _blogRepository.getBlogsByCategory(
-          category: category,
-        );
-        _categoryBlogs[category] = blogs;
-        emit(BlogsLoaded(categoryBlogs: {..._categoryBlogs}));
-      } catch (e) {
-        emit(BlogsError(e.toString()));
-      }
-    } else {
-      // Already loaded, emit again
-      emit(BlogsLoaded(categoryBlogs: {..._categoryBlogs}));
+    emit(BlogsLoading());
+    try {
+      final blogs = await _blogRepository.getBlogsByCategory(
+        category: event.category,
+      );
+      emit(BlogsLoaded(categoryBlogs: blogs));
+    } catch (e) {
+      emit(BlogsError(e.toString()));
     }
   }
 
@@ -178,6 +187,174 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(FollowStatusSuccess(isFollowing));
     } catch (e) {
       emit(FollowStatusFailure('Failed to check follow status'));
+    }
+  }
+
+  Future<void> _onQueryChanged(
+    SearchQueryChanged event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(SearchLoading());
+
+    try {
+      final results = await _blogRepository.searchBlogsByTitle(
+        event.query,
+        event.category,
+      );
+      emit(BlogsLoaded(categoryBlogs: results));
+    } catch (e) {
+      emit(BlogsError('Something went wrong'));
+    }
+  }
+
+  EventTransformer<T> debounce<T>(Duration duration) {
+    return (events, mapper) => events.debounceTime(duration).flatMap(mapper);
+  }
+
+  Future<void> _onLoadUserBlogs(
+    FetchInitialUserBlogs event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(ProfileBlogLoading());
+    try {
+      final blogs = await _blogRepository.getUserBlogs(
+        uid: event.uid,
+        lastDoc: _lastDoc,
+        limit: 10,
+      );
+
+      _blogs = blogs.blogs;
+
+      emit(
+        ProfileBlogLoaded(
+          blogs: [..._blogs, ...blogs.blogs],
+          hasMore: blogs.hasMore,
+          lastDoc: blogs.lastDoc,
+        ),
+      );
+    } catch (e) {
+      emit(ProfileBlogError(e.toString()));
+    }
+  }
+
+  Future<void> _onLoadMore(
+    FetchMoreUserBlogs event,
+    Emitter<HomeState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! ProfileBlogLoaded || !currentState.hasMore) return;
+
+    try {
+      final result = await _blogRepository.fetchUserBlogs(
+        uid: event.uid!,
+        startAfterDoc: currentState.lastDoc,
+        limit: 10,
+        categories: currentState.categories,
+        sortBy: currentState.sortBy,
+        startDate: currentState.startDate,
+        endDate: currentState.endDate,
+      );
+
+      emit(
+        ProfileBlogLoaded(
+          blogs: [...currentState.blogs, ...result.blogs],
+          hasMore: result.hasMore,
+          lastDoc: result.lastDoc,
+          categories: currentState.categories,
+          sortBy: currentState.sortBy,
+          startDate: currentState.startDate,
+          endDate: currentState.endDate,
+        ),
+      );
+    } catch (e) {
+      emit(ProfileBlogError(e.toString()));
+    }
+  }
+
+  Future<void> _onApplyFilters(
+    ApplyFilters event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(BlogsLoading());
+
+    try {
+      final result = await _blogRepository.fetchUserBlogs(
+        uid: event.uid,
+        limit: 10,
+        categories: event.categories,
+        sortBy: event.sortBy,
+        startDate: event.startDate,
+        endDate: event.endDate,
+      );
+
+      emit(
+        ProfileBlogLoaded(
+          blogs: result.blogs,
+          hasMore: result.hasMore,
+          lastDoc: result.lastDoc,
+          categories: event.categories,
+          sortBy: event.sortBy,
+          startDate: event.startDate,
+          endDate: event.endDate,
+        ),
+      );
+    } catch (e) {
+      emit(ProfileBlogError(e.toString()));
+    }
+  }
+
+  Future<void> _onDeleteBlog(DeleteBlog event, Emitter<HomeState> emit) async {
+    emit(DeleteBlogRequested());
+    try {
+      await _blogRepository.deleteBlog(event.postId);
+
+      emit(DeleteBlogSucess());
+    } catch (e) {
+      emit(DeleteBlogError('Failed to delete blog'));
+    }
+  }
+
+  Future<void> _onUpdatePost(UpdatePost event, Emitter<HomeState> emit) async {
+    emit(UpdatePostRequested());
+    try {
+      await _blogRepository.updatePost(
+        title: event.title,
+        category: event.category,
+        content: event.content,
+        postId: event.postId,
+      );
+      emit(UpdatePostSuccess());
+    } catch (e) {
+      emit(UpdatePostFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onUpdateProfile(
+    UpdateProfile event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(UpdateProfileRequested());
+    try {
+      await _blogRepository.updateProfile(
+        name: event.name,
+        uid: event.uid,
+        profileImageUrl: event.profileImageUrl,
+      );
+      emit(UpdateProfileSuccess());
+    } catch (e) {
+      emit(UpdateProfileFailure('Failed to update profile'));
+    }
+  }
+
+  Future<void> _onSignOut(SignOut event, Emitter<HomeState> emit) async {
+    emit(SignOutRequested());
+    try {
+      await Future.delayed(const Duration(seconds: 2));
+      await _blogRepository.signout();
+      SessionManager().setUser(AppUser());
+      emit(SignOutSuccess());
+    } catch (e) {
+      emit(SignOutFailure('Sign Out Failed'));
     }
   }
 }

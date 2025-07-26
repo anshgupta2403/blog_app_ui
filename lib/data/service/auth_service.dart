@@ -110,6 +110,12 @@ class AuthService {
         'email': email,
         'name': name,
         'createdAt': createdAt?.toIso8601String(),
+        'bio': '',
+        'profileImageUrl': '',
+        'totalPosts': 0,
+        'totalLikes': 0,
+        'followersCount': 0,
+        'followingCount': 0,
       });
     } on Exception catch (e) {
       print('Error adding user to Firestore: $e');
@@ -123,6 +129,12 @@ class AuthService {
       name: user['name'],
       email: user['email'],
       fcmToken: user['fcmToken'],
+      bio: user['bio'],
+      profileImageUrl: user['profileImageUrl'],
+      totalPosts: user['totalPosts'],
+      totalLikes: user['totalLikes'],
+      followersCount: user['followersCount'],
+      followingCount: user['followingCount'],
     );
     SessionManager().setUser(appUser);
     print('_saveCurrenyUser: ${SessionManager().currentUser?.uid}');

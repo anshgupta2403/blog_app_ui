@@ -74,3 +74,66 @@ class CheckFollowStatus extends HomeEvent {
 
   CheckFollowStatus(this.currentUserId, this.authorId);
 }
+
+class SearchQueryChanged extends HomeEvent {
+  final String query;
+  final String category;
+
+  SearchQueryChanged(this.query, this.category);
+}
+
+class FetchInitialUserBlogs extends HomeEvent {
+  final String? uid;
+  FetchInitialUserBlogs(this.uid);
+}
+
+class FetchMoreUserBlogs extends HomeEvent {
+  final String? uid;
+  FetchMoreUserBlogs(this.uid);
+}
+
+class ApplyFilters extends HomeEvent {
+  final String? uid;
+  final List<String>? categories;
+  final String? sortBy;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  ApplyFilters({
+    this.uid,
+    this.categories,
+    this.sortBy,
+    this.startDate,
+    this.endDate,
+  });
+}
+
+class DeleteBlog extends HomeEvent {
+  final String postId;
+
+  DeleteBlog(this.postId);
+}
+
+class UpdatePost extends HomeEvent {
+  final String title;
+  final String content;
+  final String category;
+  final String postId;
+
+  UpdatePost({
+    required this.title,
+    required this.content,
+    required this.category,
+    required this.postId,
+  });
+}
+
+class UpdateProfile extends HomeEvent {
+  final String name;
+  final String? uid;
+  final File? profileImageUrl;
+
+  UpdateProfile(this.name, this.uid, this.profileImageUrl);
+}
+
+class SignOut extends HomeEvent {}

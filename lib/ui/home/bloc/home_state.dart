@@ -18,7 +18,7 @@ final class PublishPostFailure extends HomeState {
 final class BlogsLoading extends HomeState {}
 
 final class BlogsLoaded extends HomeState {
-  final Map<String, List<BlogPost>> categoryBlogs;
+  final List<BlogPost> categoryBlogs;
 
   BlogsLoaded({required this.categoryBlogs});
 }
@@ -111,4 +111,81 @@ final class FollowStatusSuccess extends HomeState {
 final class FollowStatusFailure extends HomeState {
   final String message;
   FollowStatusFailure(this.message);
+}
+
+final class SearchInitial extends HomeState {}
+
+final class SearchLoading extends HomeState {}
+
+final class SearchLoaded extends HomeState {
+  final List<BlogPost> categoryBlogs; // replace with your model
+  SearchLoaded(this.categoryBlogs);
+}
+
+final class SearchError extends HomeState {
+  final String message;
+  SearchError(this.message);
+}
+
+class ProfileBlogLoading extends HomeState {}
+
+class ProfileBlogLoaded extends HomeState {
+  final List<BlogPost> blogs;
+  final bool hasMore;
+  final DocumentSnapshot? lastDoc;
+  final List<String>? categories;
+  final String? sortBy;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  ProfileBlogLoaded({
+    required this.blogs,
+    required this.hasMore,
+    required this.lastDoc,
+    this.categories,
+    this.sortBy,
+    this.startDate,
+    this.endDate,
+  });
+}
+
+class ProfileBlogError extends HomeState {
+  final String message;
+  ProfileBlogError(this.message);
+}
+
+class DeleteBlogRequested extends HomeState {}
+
+class DeleteBlogSucess extends HomeState {}
+
+class DeleteBlogError extends HomeState {
+  final String message;
+  DeleteBlogError(this.message);
+}
+
+class UpdatePostRequested extends HomeState {}
+
+class UpdatePostSuccess extends HomeState {}
+
+class UpdatePostFailure extends HomeState {
+  final String message;
+  UpdatePostFailure(this.message);
+}
+
+class UpdateProfileRequested extends HomeState {}
+
+class UpdateProfileSuccess extends HomeState {}
+
+class UpdateProfileFailure extends HomeState {
+  final String message;
+  UpdateProfileFailure(this.message);
+}
+
+class SignOutRequested extends HomeState {}
+
+class SignOutSuccess extends HomeState {}
+
+class SignOutFailure extends HomeState {
+  final String message;
+  SignOutFailure(this.message);
 }

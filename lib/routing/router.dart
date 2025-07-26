@@ -8,17 +8,22 @@ import 'package:blog_app/ui/auth/login/widgets/otp_verification_screen.dart';
 import 'package:blog_app/ui/auth/login/widgets/register_user_screen.dart';
 import 'package:blog_app/ui/home/widgets/blog_reader_screen.dart';
 import 'package:blog_app/ui/home/widgets/create_blog_post_screen.dart';
+import 'package:blog_app/ui/home/widgets/edit_profile_screen.dart';
 import 'package:blog_app/ui/home/widgets/home_page.dart';
+import 'package:blog_app/ui/home/widgets/profile_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class AppRouter {
   static GoRouter getRouter() {
     final GoRouter router = GoRouter(
       initialLocation: '/', // always start from launch screen
       debugLogDiagnostics: true,
+      observers: [routeObserver],
       refreshListenable: GoRouterRefreshStream(
         FirebaseAuth.instance.authStateChanges(),
       ),
@@ -65,8 +70,17 @@ class AppRouter {
         ),
         GoRoute(
           name: Routes.blogPost,
-          path: '/blog-post',
-          builder: (context, state) => const CreatePostBlogScreen(),
+          path: '/blog-post/:title/:category/:postId',
+          builder: (context, state) {
+            final title = state.pathParameters['title'];
+            final category = state.pathParameters['category'];
+            final postId = state.pathParameters['postId'];
+            return CreatePostBlogScreen(
+              title: title,
+              category: category,
+              postId: postId,
+            );
+          },
         ),
         GoRoute(
           name: Routes.blogDetails,
@@ -77,6 +91,19 @@ class AppRouter {
               postId: args['postId'],
               summary: args['summary'],
             );
+          },
+        ),
+        GoRoute(
+          name: Routes.profileScreen,
+          path: '/profile-screen',
+          builder: (context, state) => ProfileScreen(),
+        ),
+        GoRoute(
+          name: Routes.editProfile,
+          path: '/edit-profile/:name',
+          builder: (context, state) {
+            final name = state.pathParameters['name'];
+            return EditProfileScreen(name: name!);
           },
         ),
       ],

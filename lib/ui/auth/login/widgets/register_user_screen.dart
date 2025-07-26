@@ -115,6 +115,10 @@ class _RegisterUserScreenState extends State<RegisterUserScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         prefixIcon: const Icon(Icons.person_outline),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10.0,
+                          horizontal: 12.0,
+                        ),
                       ),
                       validator: (value) => value == null || value.isEmpty
                           ? 'Please enter your name'
@@ -131,6 +135,10 @@ class _RegisterUserScreenState extends State<RegisterUserScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         prefixIcon: const Icon(Icons.email_outlined),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10.0,
+                          horizontal: 12.0,
+                        ),
                       ),
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
@@ -159,6 +167,10 @@ class _RegisterUserScreenState extends State<RegisterUserScreen>
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               prefixIcon: const Icon(Icons.lock_outline),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 10.0,
+                                horizontal: 12.0,
+                              ),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscurePassword
@@ -221,6 +233,10 @@ class _RegisterUserScreenState extends State<RegisterUserScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         prefixIcon: const Icon(Icons.lock_outline),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10.0,
+                          horizontal: 12.0,
+                        ),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscureConfirmPassword
