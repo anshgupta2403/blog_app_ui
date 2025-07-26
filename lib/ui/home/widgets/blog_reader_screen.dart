@@ -338,6 +338,7 @@ class _StickyBottomBarState extends State<_StickyBottomBar> {
                   ToggleLikePost(
                     widget.postId,
                     SessionManager().currentUser?.uid,
+                    widget.summary.uid,
                   ),
                 );
               },

@@ -95,12 +95,17 @@ class _HomePageState extends State<HomePage>
                 context.pushNamed(Routes.profileScreen);
               },
               child: CircleAvatar(
-                radius: 25,
+                radius: 22,
                 backgroundImage: profileImageUrl != null
                     ? NetworkImage(profileImageUrl)
                     : null,
+                backgroundColor: Colors.white,
                 child: profileImageUrl == null
-                    ? const Icon(Icons.person, size: 45, color: Colors.white)
+                    ? const Icon(
+                        Icons.person,
+                        size: 45,
+                        color: Colors.deepPurpleAccent,
+                      )
                     : null,
               ),
             ),

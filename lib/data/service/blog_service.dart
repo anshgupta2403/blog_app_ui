@@ -35,6 +35,9 @@ class BlogService {
         .collection('posts_summary')
         .doc();
 
+    final usersRef = _firestore.collection('users').doc(user.uid);
+    int? totalPosts = SessionManager().currentUser?.totalPosts;
+
     await _firestore.runTransaction((txn) async {
       txn.set(postRef, {
         'title': title,
@@ -52,6 +55,8 @@ class BlogService {
         FirebaseFirestore.instance.collection('posts_content').doc(postRef.id),
         {'postId': postRef.id, 'content': content},
       );
+
+      txn.set(usersRef, {'totalPosts': totalPosts! + 1});
     });
   }
 
@@ -78,44 +83,6 @@ class BlogService {
   //Get blog details by id
   Future<DocumentSnapshot> getBlogById(String postId) async {
     return await _firestore.collection('posts_content').doc(postId).get();
-  }
-
-  //Like post
-  Future<void> likePost(String postId, String uid) async {
-    final likeDoc = _firestore
-        .collection('posts_summary')
-        .doc(postId)
-        .collection('likes')
-        .doc(uid);
-
-    final postDoc = _firestore.collection('posts').doc(postId);
-
-    await _firestore.runTransaction((transaction) async {
-      final likeSnapshot = await transaction.get(likeDoc);
-      if (!likeSnapshot.exists) {
-        transaction.set(likeDoc, {'likedAt': FieldValue.serverTimestamp()});
-        transaction.update(postDoc, {'numLikes': FieldValue.increment(1)});
-      }
-    });
-  }
-
-  //Unlike post
-  Future<void> unlikePost(String postId, String uid) async {
-    final likeDoc = _firestore
-        .collection('posts_summary')
-        .doc(postId)
-        .collection('likes')
-        .doc(uid);
-
-    final postDoc = _firestore.collection('posts').doc(postId);
-
-    await _firestore.runTransaction((transaction) async {
-      final likeSnapshot = await transaction.get(likeDoc);
-      if (likeSnapshot.exists) {
-        transaction.delete(likeDoc);
-        transaction.update(postDoc, {'numLikes': FieldValue.increment(-1)});
-      }
-    });
   }
 
   //Get comments on post by id
@@ -172,15 +139,22 @@ class BlogService {
   }
 
   //Like/Unlike the post
-  Future<void> toggleLikePost(String postId, String userId) async {
+  Future<void> toggleLikePost(
+    String postId,
+    String userId,
+    String authorId,
+  ) async {
     final postRef = _firestore.collection('posts_summary').doc(postId);
     final likeRef = postRef.collection('likes').doc(userId);
+    final userRef = _firestore.collection('users').doc(authorId);
 
     await FirebaseFirestore.instance.runTransaction((transaction) async {
       final likeSnapshot = await transaction.get(likeRef);
       final postSnapshot = await transaction.get(postRef);
+      final userSnapshot = await transaction.get(userRef);
 
       int currentLikes = postSnapshot.data()?['likesCount'] ?? 0;
+      int totalLikes = userSnapshot.data()?['totalLikes'] ?? 0;
 
       if (likeSnapshot.exists) {
         // User already liked, so unlike
@@ -188,10 +162,14 @@ class BlogService {
         transaction.update(postRef, {
           'numLikes': currentLikes > 0 ? currentLikes - 1 : 0,
         });
+        transaction.update(userRef, {
+          'totalLikes': totalLikes > 0 ? totalLikes - 1 : 0,
+        });
       } else {
         // User hasn't liked, so add like
         transaction.set(likeRef, {'likedAt': FieldValue.serverTimestamp()});
         transaction.update(postRef, {'numLikes': currentLikes + 1});
+        transaction.update(userRef, {'totalLikes': totalLikes + 1});
       }
     });
   }
@@ -210,17 +188,14 @@ class BlogService {
   Future<void> followAuthor(String followerId, String authorId) async {
     final batch = _firestore.batch();
 
-    final followerRef = _firestore
-        .collection('users')
-        .doc(authorId)
-        .collection('followers')
-        .doc(followerId);
+    final usersRef = _firestore.collection('users').doc(authorId);
+    final authorRef = _firestore.collection('users').doc(followerId);
+    int? totalFollowers = SessionManager().currentUser?.followersCount;
+    int? totalFollowing = SessionManager().currentUser?.followingCount;
 
-    final followingRef = _firestore
-        .collection('users')
-        .doc(followerId)
-        .collection('following')
-        .doc(authorId);
+    final followerRef = usersRef.collection('followers').doc(followerId);
+
+    final followingRef = authorRef.collection('following').doc(authorId);
 
     final timestamp = FieldValue.serverTimestamp();
 
@@ -230,11 +205,19 @@ class BlogService {
     // Add targetUserId to currentUserId's following
     batch.set(followingRef, {'authorId': authorId, 'followedAt': timestamp});
 
+    batch.set(usersRef, {'followersCount': totalFollowers! + 1});
+    batch.set(authorRef, {'followingCount': totalFollowing! + 1});
+
     await batch.commit();
   }
 
   Future<void> unfollowAuthor(String followerId, String authorId) async {
     final batch = _firestore.batch();
+
+    final usersRef = _firestore.collection('users').doc(authorId);
+    final authorRef = _firestore.collection('users').doc(followerId);
+    int? totalFollowers = SessionManager().currentUser?.followersCount;
+    int? totalFollowing = SessionManager().currentUser?.followingCount;
 
     final followingRef = _firestore
         .collection('users')
@@ -249,6 +232,9 @@ class BlogService {
 
     batch.delete(followingRef);
     batch.delete(followersRef);
+
+    batch.set(usersRef, {'followersCount': totalFollowers! - 1});
+    batch.set(authorRef, {'followingCount': totalFollowing! - 1});
 
     await batch.commit();
   }

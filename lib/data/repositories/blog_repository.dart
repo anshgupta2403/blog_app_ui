@@ -65,8 +65,8 @@ class BlogRepository {
     return _blogService.addComment(postId, comment);
   }
 
-  Future<void> toggleLike(String postId, String userId) async {
-    return await _blogService.toggleLikePost(postId, userId);
+  Future<void> toggleLike(String postId, String userId, String authorId) async {
+    return await _blogService.toggleLikePost(postId, userId, authorId);
   }
 
   Future<bool> isPostLiked(String postId, String? userId) {

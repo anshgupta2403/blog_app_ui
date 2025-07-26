@@ -43,8 +43,9 @@ final class LoadComments extends HomeEvent {
 class ToggleLikePost extends HomeEvent {
   final String postId;
   final String? userId;
+  final String? authorId;
 
-  ToggleLikePost(this.postId, this.userId);
+  ToggleLikePost(this.postId, this.userId, this.authorId);
 }
 
 class CheckIfPostLiked extends HomeEvent {

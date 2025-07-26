@@ -119,7 +119,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   ) async {
     try {
       if (event.userId != null) {
-        await _blogRepository.toggleLike(event.postId, event.userId!);
+        await _blogRepository.toggleLike(
+          event.postId,
+          event.userId!,
+          event.authorId!,
+        );
         final isLiked = await _blogRepository.isPostLiked(
           event.postId,
           event.userId!,
