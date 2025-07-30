@@ -71,9 +71,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Verify Email'),
+        title: const Text(
+          'Verify Email',
+          style: TextStyle(color: Colors.white),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
           onPressed: () {
             GoRouter.of(context).pushNamed(Routes.registerUser);
           },

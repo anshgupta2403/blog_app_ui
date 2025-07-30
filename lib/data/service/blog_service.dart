@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:blog_app/data/models/app_notification_model.dart';
 import 'package:blog_app/data/models/app_user_model.dart';
 import 'package:blog_app/data/models/blog_post_model.dart';
 import 'package:blog_app/data/models/blog_result_model.dart';
@@ -36,7 +37,7 @@ class BlogService {
         .doc();
 
     final usersRef = _firestore.collection('users').doc(user.uid);
-    int? totalPosts = SessionManager().currentUser?.totalPosts;
+    int totalPosts = SessionManager().currentUser?.totalPosts ?? 0;
 
     await _firestore.runTransaction((txn) async {
       txn.set(postRef, {
@@ -56,7 +57,7 @@ class BlogService {
         {'postId': postRef.id, 'content': content},
       );
 
-      txn.set(usersRef, {'totalPosts': totalPosts! + 1});
+      txn.update(usersRef, {'totalPosts': totalPosts + 1});
     });
   }
 
@@ -72,8 +73,28 @@ class BlogService {
         .limit(limit);
 
     final snapshot = await query.get();
-
+    if (SessionManager().currentUser == null) {
+      _saveCurrentUser(_auth.currentUser?.uid);
+    }
     return snapshot.docs.map((doc) => BlogPost.fromSnapshot(doc)).toList();
+  }
+
+  Future<void> _saveCurrentUser(String? uid) async {
+    final user = await _firestore.collection('users').doc(uid).get();
+    final AppUser appUser = AppUser(
+      uid: user['uid'],
+      name: user['name'],
+      email: user['email'],
+      fcmToken: user['fcmToken'],
+      bio: user['bio'],
+      profileImageUrl: user['profileImageUrl'],
+      totalPosts: user['totalPosts'],
+      totalLikes: user['totalLikes'],
+      followersCount: user['followersCount'],
+      followingCount: user['followingCount'],
+    );
+    SessionManager().setUser(appUser);
+    print('_saveCurrenyUser: ${SessionManager().currentUser?.uid}');
   }
 
   void resetPagination() {
@@ -205,8 +226,8 @@ class BlogService {
     // Add targetUserId to currentUserId's following
     batch.set(followingRef, {'authorId': authorId, 'followedAt': timestamp});
 
-    batch.set(usersRef, {'followersCount': totalFollowers! + 1});
-    batch.set(authorRef, {'followingCount': totalFollowing! + 1});
+    batch.update(usersRef, {'followersCount': totalFollowers! + 1});
+    batch.update(authorRef, {'followingCount': totalFollowing! + 1});
 
     await batch.commit();
   }
@@ -233,8 +254,8 @@ class BlogService {
     batch.delete(followingRef);
     batch.delete(followersRef);
 
-    batch.set(usersRef, {'followersCount': totalFollowers! - 1});
-    batch.set(authorRef, {'followingCount': totalFollowing! - 1});
+    batch.update(usersRef, {'followersCount': totalFollowers! - 1});
+    batch.update(authorRef, {'followingCount': totalFollowing! - 1});
 
     await batch.commit();
   }
@@ -366,31 +387,82 @@ class BlogService {
   }
 
   Future<void> updateProfile({
-    required String name,
+    required String? name,
     required String? uid,
     required File? profileImageUrl,
   }) async {
     String imageUrl;
 
-    final ref = _firebaseStorage.ref().child('user_profiles/$uid.jpg');
-    await ref.putFile(profileImageUrl!);
-    imageUrl = await ref.getDownloadURL();
+    if (profileImageUrl != null) {
+      final ref = _firebaseStorage.ref().child('user_profiles/$uid.jpg');
+      await ref.putFile(profileImageUrl);
+      imageUrl = await ref.getDownloadURL();
+      await _firestore.collection('users').doc(uid).update({
+        'profileImageUrl': imageUrl,
+      });
+      _updateProfileImage(imageUrl);
+    }
 
-    await _firestore.collection('users').doc(uid).update({
-      'name': name,
-      'profileImageUrl': imageUrl,
-    });
-    _updateCurrentUser(name, imageUrl);
+    if (name != null) {
+      await _firestore.collection('users').doc(uid).update({'name': name});
+      _updateName(name);
+    }
   }
 
-  void _updateCurrentUser(String name, String imageUrl) {
+  void _updateName(String name) {
     AppUser? currentUser = SessionManager().currentUser;
-    currentUser = currentUser?.copyWith(name: name, profileImageUrl: imageUrl);
+    currentUser = currentUser?.copyWith(name: name);
+    SessionManager().setUser(currentUser!);
+  }
+
+  void _updateProfileImage(String imageUrl) {
+    AppUser? currentUser = SessionManager().currentUser;
+    currentUser = currentUser?.copyWith(profileImageUrl: imageUrl);
     SessionManager().setUser(currentUser!);
   }
 
   Future<void> signout() async {
     await _auth.signOut();
+  }
+
+  Stream<List<AppNotification>> fetchNotifications(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => AppNotification.fromSnapshot(doc))
+              .toList(),
+        );
+  }
+
+  Future<void> markAsRead(String notificationId, String userId) async {
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .doc(notificationId)
+        .update({'isRead': true});
+  }
+
+  Future<void> deleteNotification(String notificationId, String userId) async {
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .doc(notificationId)
+        .delete();
+  }
+
+  Future<BlogPost> getBlogSummary(String postId) async {
+    final result = await _firestore
+        .collection('posts_summary')
+        .doc(postId)
+        .get();
+    return BlogPost.fromSnapshot(result);
   }
 
   bool get hasMore => _lastVisible != null;

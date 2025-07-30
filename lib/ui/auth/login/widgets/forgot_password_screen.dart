@@ -1,6 +1,7 @@
 import 'package:blog_app/routing/routes.dart';
 import 'package:blog_app/ui/auth/login/bloc/auth_bloc.dart';
 import 'package:blog_app/ui/auth/login/bloc/auth_event.dart';
+import 'package:blog_app/ui/auth/login/bloc/auth_state.dart';
 import 'package:blog_app/ui/core/extensions/validators.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,101 +29,136 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 40),
-                  Text(
-                    'Forgot Password',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Enter your email to receive a reset link',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 10.0,
-                        horizontal: 12.0,
-                      ),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      } else if (!value.trim().isValidEmail) {
-                        return 'Enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        context.read<AuthBloc>().add(
-                          ForgotPasswordSubmitted(_emailController.text),
-                        );
-                      }
-                    },
-                    child: Text(
-                      'Send Reset Link',
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is ForgotPasswordSuccess) {
+          context.pushNamed(Routes.login);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Reset password link sent to your email-id'),
+            ),
+          );
+        } else if (state is ForgotPasswordFailure) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 40),
+                    Text(
+                      'Forgot Password',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.montserrat(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Enter your email to receive a reset link',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
 
-                  const SizedBox(height: 32),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Remember your password? '),
-                      GestureDetector(
-                        onTap: () => GoRouter.of(context).go(Routes.login),
-                        child: Text(
-                          'Sign In',
-                          style: GoogleFonts.montserrat(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10.0,
+                          horizontal: 12.0,
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your email';
+                        } else if (!value.trim().isValidEmail) {
+                          return 'Enter a valid email';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        final isLoading = state is LoginLoading;
+
+                        return ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  if (_formKey.currentState!.validate()) {
+                                    context.read<AuthBloc>().add(
+                                      ForgotPasswordSubmitted(
+                                        _emailController.text,
+                                      ),
+                                    );
+                                  }
+                                },
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  'Send Reset Link',
+                                  style: GoogleFonts.montserrat(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Remember your password? '),
+                        GestureDetector(
+                          onTap: () => GoRouter.of(context).go(Routes.login),
+                          child: Text(
+                            'Sign In',
+                            style: GoogleFonts.montserrat(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -84,10 +84,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       await _authRepository.sendPasswordResetEmail(event.email);
       emit(ForgotPasswordSuccess());
-    } on FirebaseAuthException catch (e) {
-      emit(ForgotPasswordFailure('${e.message}'));
+    } on FirebaseAuthException catch (_) {
+      emit(ForgotPasswordFailure('Failed to send reset email'));
     } catch (e) {
-      emit(ForgotPasswordFailure(e.toString()));
+      emit(ForgotPasswordFailure('Failed to send reset email'));
     }
   }
 

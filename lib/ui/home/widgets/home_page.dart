@@ -29,7 +29,6 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
-
     _tabController = TabController(length: categories.length + 1, vsync: this);
 
     // Initial fetch for the first tab
@@ -148,10 +147,7 @@ class _HomePageState extends State<HomePage>
               ),
             ),
             const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.white),
-              onPressed: () {},
-            ),
+            NotificationIcon(onTap: () => showNotificationsSheet(context)),
           ],
         ),
         bottom: TabBar(
@@ -191,6 +187,149 @@ class _HomePageState extends State<HomePage>
         child: const Icon(Icons.edit),
       ),
     );
+  }
+
+  void showNotificationsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: const NotificationList(),
+      ),
+    );
+  }
+}
+
+class NotificationIcon extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const NotificationIcon({super.key, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<HomeBloc, HomeState>(
+      listener: (context, state) {
+        if (state is NotificationError) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
+        }
+      },
+      builder: (context, state) {
+        int unread = 0;
+        if (state is NotificationLoaded) unread = state.unreadCount;
+
+        return Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none, color: Colors.white),
+              onPressed: onTap,
+            ),
+            if (unread > 0)
+              Positioned(
+                right: 6,
+                top: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$unread',
+                    style: const TextStyle(color: Colors.white, fontSize: 10),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class NotificationList extends StatefulWidget {
+  const NotificationList({super.key});
+
+  @override
+  State<NotificationList> createState() => _NotificationListState();
+}
+
+class _NotificationListState extends State<NotificationList> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<HomeBloc>().add(
+      LoadNotifications(SessionManager().currentUser?.uid),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUser = SessionManager().currentUser;
+    return BlocBuilder<HomeBloc, HomeState>(
+      builder: (context, state) {
+        if (state is NotificationLoading) {
+          return const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        } else if (state is NotificationLoaded) {
+          final notifications = state.notifications;
+
+          return ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.all(16),
+            itemCount: notifications.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (context, index) {
+              final notification = notifications[index];
+              return Dismissible(
+                key: Key(notification.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Icon(Icons.delete, color: Colors.white),
+                ),
+                onDismissed: (_) {
+                  context.read<HomeBloc>().add(
+                    DeleteNotification(notification.id, currentUser?.uid),
+                  );
+                },
+                child: ListTile(
+                  title: Text(notification.title),
+                  subtitle: Text(notification.body),
+                  onTap: () {
+                    context.read<HomeBloc>().add(
+                      MarkNotificationAsRead(notification.id, currentUser?.uid),
+                    );
+                  },
+                  tileColor: notification.isRead
+                      ? Colors.grey[200]
+                      : Colors.white,
+                ),
+              );
+            },
+          );
+        } else {
+          return const Center(child: Text('No notifications'));
+        }
+      },
+    );
+  }
+
+  String timeAgo(DateTime time) {
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 }
 
@@ -288,21 +427,6 @@ class _BlogListState extends State<BlogList> {
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
-                            ),
-                            const Spacer(),
-                            PopupMenuButton<String>(
-                              onSelected: (value) {},
-                              itemBuilder: (BuildContext context) =>
-                                  <PopupMenuEntry<String>>[
-                                    const PopupMenuItem<String>(
-                                      value: 'edit',
-                                      child: Text('Edit'),
-                                    ),
-                                    const PopupMenuItem<String>(
-                                      value: 'delete',
-                                      child: Text('Delete'),
-                                    ),
-                                  ],
                             ),
                           ],
                         ),

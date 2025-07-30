@@ -9,210 +9,242 @@ import '../../home/bloc/home_bloc.dart';
 
 class BlogReaderScreen extends StatefulWidget {
   final String postId;
-  final BlogPost summary;
+  final BlogPost? summary;
 
-  const BlogReaderScreen({
-    super.key,
-    required this.postId,
-    required this.summary,
-  });
+  const BlogReaderScreen({super.key, required this.postId, this.summary});
 
   @override
   State<BlogReaderScreen> createState() => _BlogReaderScreenState();
 }
 
 class _BlogReaderScreenState extends State<BlogReaderScreen> {
+  BlogPost? summary;
+
   @override
   void initState() {
     super.initState();
     final bloc = context.read<HomeBloc>();
     bloc.add(LoadBlogDetails(widget.postId));
     bloc.add(LoadComments(widget.postId));
-    final authorId = widget.summary.uid;
-    final currentUserId = SessionManager().currentUser?.uid;
-    if (currentUserId != null) {
-      bloc.add(CheckFollowStatus(currentUserId, authorId));
+    if (widget.summary == null) {
+      bloc.add(LoadBlogSummary(widget.postId));
+    } else {
+      setState(() {
+        summary = widget.summary;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final BlogPost summary = widget.summary;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // Custom AppBar
-          SafeArea(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.deepPurple),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                Text(
-                  widget.summary.category,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.share, color: Colors.deepPurple),
-                  onPressed: () {
-                    Share.share('${summary.title}\n\nRead more in the app!');
-                  },
-                ),
-              ],
+    return BlocConsumer<HomeBloc, HomeState>(
+      listener: (context, state) {
+        if (state is LoadBlogSummarySuccess) {
+          setState(() {
+            summary = state.summary;
+          });
+          final authorId = summary!.uid;
+          final currentUserId = SessionManager().currentUser?.uid;
+          if (currentUserId != null) {
+            context.read<HomeBloc>().add(
+              CheckFollowStatus(currentUserId, authorId),
+            );
+          }
+        }
+      },
+      builder: (context, state) {
+        if (summary == null) {
+          return Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
             ),
+            title: Text(
+              summary?.category ?? '',
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.share, color: Colors.white),
+                onPressed: () {
+                  final deepLink =
+                      'https://blog-app-f2ee1.web.app/blog-details?id=${widget.postId}';
+
+                  final shareText =
+                      '''📝 *${summary!.title}* \n👤 by *${summary!.authorName}*\n\n"${summary!.preview}"\n\n👉 Read the full blog here:\n$deepLink''';
+                  SharePlus.instance.share(ShareParams(text: shareText));
+                },
+              ),
+            ],
           ),
-
-          // Content
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              children: [
-                Text(
-                  summary.title,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+          body: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  CommonUtil.formatRelativeDate(summary.createdAt),
-                  style: const TextStyle(color: Colors.grey, fontSize: 16),
-                ),
-                SizedBox(height: 10),
-                Row(
                   children: [
-                    const CircleAvatar(child: Icon(Icons.person)),
-                    const SizedBox(width: 10),
                     Text(
-                      summary.authorName,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      summary!.title,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
-                    const SizedBox(width: 10),
-                    BlocConsumer<HomeBloc, HomeState>(
-                      listenWhen: (previous, current) =>
-                          current is FollowStatusFailure,
-                      listener: (context, state) {
-                        if (state is FollowStatusFailure) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(state.message)),
-                          );
-                        }
-                      },
-                      builder: (context, state) {
-                        final isFollowing =
-                            state is FollowStatusSuccess && state.isFollowing;
-                        return OutlinedButton(
-                          onPressed: () {
-                            final currentUserId =
-                                SessionManager().currentUser?.uid;
-                            final targetUserId = widget.summary.uid;
-
-                            if (isFollowing) {
-                              context.read<HomeBloc>().add(
-                                UnfollowAuthor(currentUserId, targetUserId),
-                              );
-                            } else {
-                              context.read<HomeBloc>().add(
-                                FollowAuthor(currentUserId, targetUserId),
+                    const SizedBox(height: 8),
+                    Text(
+                      CommonUtil.formatRelativeDate(summary!.createdAt),
+                      style: const TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                    SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const CircleAvatar(child: Icon(Icons.person)),
+                        const SizedBox(width: 10),
+                        Text(
+                          summary!.authorName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(width: 10),
+                        BlocConsumer<HomeBloc, HomeState>(
+                          listenWhen: (previous, current) =>
+                              current is FollowStatusFailure,
+                          listener: (context, state) {
+                            if (state is FollowStatusFailure) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(state.message)),
                               );
                             }
                           },
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            side: const BorderSide(color: Colors.black),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
+                          builder: (context, state) {
+                            final isFollowing =
+                                state is FollowStatusSuccess &&
+                                state.isFollowing;
+                            return OutlinedButton(
+                              onPressed: () {
+                                final currentUserId =
+                                    SessionManager().currentUser?.uid;
+                                final targetUserId = summary!.uid;
+
+                                if (isFollowing) {
+                                  context.read<HomeBloc>().add(
+                                    UnfollowAuthor(currentUserId, targetUserId),
+                                  );
+                                } else {
+                                  context.read<HomeBloc>().add(
+                                    FollowAuthor(currentUserId, targetUserId),
+                                  );
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                side: const BorderSide(color: Colors.black),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                              ),
+                              child: Text(
+                                isFollowing ? 'Unfollow' : 'Follow',
+                                style: const TextStyle(color: Colors.black),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    BlocBuilder<HomeBloc, HomeState>(
+                      buildWhen: (prev, curr) =>
+                          curr is BlogDetailLoading ||
+                          curr is BlogDetailLoadingSuccess ||
+                          curr is BlogDetailLoadingFailure,
+                      builder: (context, state) {
+                        if (state is BlogDetailLoading) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        } else if (state is BlogDetailLoadingSuccess) {
+                          return Text(
+                            state.postContent,
+                            style: const TextStyle(fontSize: 16, height: 1.6),
+                          );
+                        } else if (state is BlogDetailLoadingFailure) {
+                          return Text(
+                            'Error: ${state.message}',
+                            style: const TextStyle(color: Colors.red),
+                          );
+                        }
+                        return const SizedBox();
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Comments (${summary!.numComments})',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          child: Text(
-                            isFollowing ? 'Unfollow' : 'Follow',
-                            style: const TextStyle(color: Colors.black),
-                          ),
-                        );
+                        ),
+                        _StickyBottomBar(
+                          postId: widget.postId,
+                          summary: summary!,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    BlocBuilder<HomeBloc, HomeState>(
+                      builder: (context, state) {
+                        if (state is CommentsLoading) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        } else if (state is CommentsError) {
+                          return Text(
+                            'Failed to load comments: ${state.message}',
+                          );
+                        } else if (state is CommentsLoaded ||
+                            state is CommentAddedLocally) {
+                          final comments = state is CommentsLoaded
+                              ? state.comments
+                              : [];
+                          return AnimatedCommentList(initialComments: comments);
+                        } else {
+                          return const SizedBox();
+                        }
                       },
                     ),
                   ],
                 ),
-                BlocBuilder<HomeBloc, HomeState>(
-                  buildWhen: (prev, curr) =>
-                      curr is BlogDetailLoading ||
-                      curr is BlogDetailLoadingSuccess ||
-                      curr is BlogDetailLoadingFailure,
-                  builder: (context, state) {
-                    if (state is BlogDetailLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    } else if (state is BlogDetailLoadingSuccess) {
-                      return Text(
-                        state.postContent,
-                        style: const TextStyle(fontSize: 16, height: 1.6),
-                      );
-                    } else if (state is BlogDetailLoadingFailure) {
-                      return Text(
-                        'Error: ${state.message}',
-                        style: const TextStyle(color: Colors.red),
-                      );
-                    }
-                    return const SizedBox();
-                  },
-                ),
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Comments (${widget.summary.numComments})',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    _StickyBottomBar(postId: widget.postId, summary: summary),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                BlocBuilder<HomeBloc, HomeState>(
-                  builder: (context, state) {
-                    if (state is CommentsLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    } else if (state is CommentsError) {
-                      return Text('Failed to load comments: ${state.message}');
-                    } else if (state is CommentsLoaded ||
-                        state is CommentAddedLocally) {
-                      final comments = state is CommentsLoaded
-                          ? state.comments
-                          : [];
-                      return AnimatedCommentList(initialComments: comments);
-                    } else {
-                      return const SizedBox();
-                    }
-                  },
-                ),
-              ],
-            ),
+              ),
+              _CommentInputBar(postId: widget.postId),
+            ],
           ),
 
           // Comment Input Bar
-          _CommentInputBar(postId: widget.postId),
-        ],
-      ),
 
-      // Bottom bar
+          // Bottom bar
+        );
+      },
     );
   }
 }

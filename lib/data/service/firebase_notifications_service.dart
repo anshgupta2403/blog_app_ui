@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:blog_app/data/models/blog_post_model.dart';
-import 'package:blog_app/routing/router.dart';
+import 'package:blog_app/main.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 
 class FirebaseNotificationsService {
   final _firebaseMessaging = FirebaseMessaging.instance;
@@ -102,12 +103,10 @@ class FirebaseNotificationsService {
         );
       }
     });
-
-    FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
   }
 
   /// Static method: invoked by background handler
-  static Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+  static Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
     debugPrint('Background message received: ${message.messageId}');
   }
 
@@ -141,10 +140,9 @@ class FirebaseNotificationsService {
         uid: decoded['uid'],
       );
 
-      AppRouter.getRouter().pushNamed(
-        '/blog-post',
-        extra: {'postId': postId, 'summary': blog},
-      );
+      GoRouter.of(
+        navigatorKey.currentContext!,
+      ).go('/blog-details', extra: {'postId': postId, 'summary': blog});
     } catch (e) {
       debugPrint('Error navigating from data: $e');
     }

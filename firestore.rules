@@ -2,15 +2,72 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow users to read/write their own document
+    // 1. USERS COLLECTION
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // User can read/write their own profile
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
     }
 
-    // Allow all authenticated users to write blog posts
-    match /posts/{postId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+    // 2. FOLLOWERS SUBCOLLECTION
+    match /users/{userId}/followers/{followerId} {
+      // Only the authenticated follower can follow/unfollow
+      allow create, delete: if request.auth != null && request.auth.uid == followerId;
+      allow read: if request.auth != null; // or stricter: request.auth.uid == userId
     }
+
+    // 3. FOLLOWING SUBCOLLECTION
+    match /users/{userId}/following/{followingId} {
+      // Only the user themselves can follow/unfollow someone
+      allow create, delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+    }
+
+    // 4. NOTIFICATIONS SUBCOLLECTION
+    match /users/{userId}/notifications/{notificationId} {
+      // Only the user can read/delete their own notifications
+      allow read, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null; // Allow system to push notifications
+    }
+
+    // 5. POSTS_SUMMARY COLLECTION (Public metadata)
+    match /posts_summary/{postId} {
+      allow read: if true; // Public
+      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.uid;
+    }
+
+    // 6. POSTS_CONTENT COLLECTION (Full post body)
+    match /posts_content/{postId} {
+      allow read: if true; // Public
+      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.uid;
+    }
+
+    match /posts_summary/{postId} {
+
+      allow read: if true;
+      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.uid;
+
+      // 1. COMMENTS subcollection
+      match /comments/{commentId} {
+        // Read: anyone can read comments
+        allow read: if true;
+
+        // Write: only authenticated user can create, update, or delete their own comment
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+
+        allow update, delete: if request.auth != null &&
+          request.auth.uid == resource.data.uid;
+      }
+
+      // 2. LIKES subcollection
+      match /likes/{userId} {
+        // Read: anyone can read the likes
+        allow read: if true;
+
+        // Write: only the user can like or unlike
+        allow create, delete: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
   }
 }

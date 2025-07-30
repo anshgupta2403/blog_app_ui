@@ -44,7 +44,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final profileImageUrl = SessionManager().currentUser?.profileImageUrl;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Profile')),
+      appBar: AppBar(
+        title: const Text(
+          'Edit Profile',
+          style: TextStyle(color: Colors.white),
+        ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            GoRouter.of(context).pop();
+          },
+        ),
+      ),
       body: BlocConsumer<HomeBloc, HomeState>(
         listener: (context, state) {
           if (state is UpdateProfileSuccess) {
@@ -98,10 +109,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 TextField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Name'),
+                  onChanged: (_) {
+                    setState(() {});
+                  },
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: state is UpdateProfileRequested
+                  onPressed:
+                      state is UpdateProfileRequested &&
+                          _nameController.text.trim() == widget.name &&
+                          _imageFile == null
                       ? null
                       : () {
                           context.read<HomeBloc>().add(
@@ -112,6 +129,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ),
                           );
                         },
+                  style: ButtonStyle(
+                    backgroundColor:
+                        _nameController.text.trim() == widget.name &&
+                            _imageFile == null
+                        ? WidgetStateColor.resolveWith(
+                            (_) => Colors.deepPurpleAccent.shade100,
+                          )
+                        : WidgetStateColor.resolveWith(
+                            (_) => Colors.deepPurpleAccent,
+                          ),
+                  ),
                   child: state is UpdateProfileRequested
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text('Save Changes'),

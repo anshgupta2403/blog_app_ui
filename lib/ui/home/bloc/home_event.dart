@@ -95,14 +95,14 @@ class FetchMoreUserBlogs extends HomeEvent {
 
 class ApplyFilters extends HomeEvent {
   final String? uid;
-  final List<String>? categories;
+  final List<String> categories;
   final String? sortBy;
   final DateTime? startDate;
   final DateTime? endDate;
 
   ApplyFilters({
     this.uid,
-    this.categories,
+    this.categories = const [],
     this.sortBy,
     this.startDate,
     this.endDate,
@@ -138,3 +138,30 @@ class UpdateProfile extends HomeEvent {
 }
 
 class SignOut extends HomeEvent {}
+
+class LoadNotifications extends HomeEvent {
+  final String? uid;
+  LoadNotifications(this.uid);
+}
+
+class NewNotificationReceived extends HomeEvent {
+  final AppNotification notification;
+  NewNotificationReceived(this.notification);
+}
+
+class DeleteNotification extends HomeEvent {
+  final String notificationId;
+  final String? userId;
+  DeleteNotification(this.notificationId, this.userId);
+}
+
+class MarkNotificationAsRead extends HomeEvent {
+  final String notificationId;
+  final String? userId;
+  MarkNotificationAsRead(this.notificationId, this.userId);
+}
+
+class LoadBlogSummary extends HomeEvent {
+  final String postId;
+  LoadBlogSummary(this.postId);
+}

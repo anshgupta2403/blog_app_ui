@@ -55,12 +55,14 @@ class AuthService {
     final GoogleSignInAuthentication googleAuth =
         await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
-      // accessToken: googleAuth.accessToken,
+      accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
     final result = await _auth.signInWithCredential(credential);
-    _firebaseNotificationsService.initNotifications();
-    _saveCurrentUser(result.user?.uid);
+    if (result.user != null) {
+      _firebaseNotificationsService.initNotifications();
+      _saveCurrentUser(result.user?.uid);
+    }
     return result.user;
   }
 

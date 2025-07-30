@@ -133,7 +133,7 @@ class ProfileBlogLoaded extends HomeState {
   final List<BlogPost> blogs;
   final bool hasMore;
   final DocumentSnapshot? lastDoc;
-  final List<String>? categories;
+  final List<String> categories;
   final String? sortBy;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -142,7 +142,7 @@ class ProfileBlogLoaded extends HomeState {
     required this.blogs,
     required this.hasMore,
     required this.lastDoc,
-    this.categories,
+    this.categories = const [],
     this.sortBy,
     this.startDate,
     this.endDate,
@@ -188,4 +188,31 @@ class SignOutSuccess extends HomeState {}
 class SignOutFailure extends HomeState {
   final String message;
   SignOutFailure(this.message);
+}
+
+class NotificationInitial extends HomeState {}
+
+class NotificationLoading extends HomeState {}
+
+class NotificationLoaded extends HomeState {
+  final List<AppNotification> notifications;
+  final int unreadCount;
+  NotificationLoaded({required this.notifications, required this.unreadCount});
+}
+
+class NotificationError extends HomeState {
+  final String message;
+  NotificationError(this.message);
+}
+
+class LoadBlogSummaryRequested extends HomeState {}
+
+class LoadBlogSummarySuccess extends HomeState {
+  final BlogPost summary;
+  LoadBlogSummarySuccess(this.summary);
+}
+
+class LoadBlogSummaryfailure extends HomeState {
+  final String message;
+  LoadBlogSummaryfailure(this.message);
 }

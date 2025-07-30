@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:blog_app/data/models/app_notification_model.dart';
 import 'package:blog_app/data/models/blog_post_model.dart';
 import 'package:blog_app/data/models/blog_result_model.dart';
 import 'package:blog_app/data/models/comment_model.dart';
@@ -150,7 +151,23 @@ class BlogRepository {
     );
   }
 
+  Stream<List<AppNotification>> getNotifications(String userId) {
+    return _blogService.fetchNotifications(userId);
+  }
+
+  Future<void> markAsRead(String notificationId, String userId) {
+    return _blogService.markAsRead(notificationId, userId);
+  }
+
+  Future<void> deleteNotification(String notificationId, String userId) {
+    return _blogService.deleteNotification(notificationId, userId);
+  }
+
   Future<void> signout() async {
     await _blogService.signout();
+  }
+
+  Future<BlogPost> getBlogSummary(String postId) {
+    return _blogService.getBlogSummary(postId);
   }
 }

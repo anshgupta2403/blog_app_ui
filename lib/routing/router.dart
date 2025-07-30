@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:blog_app/main.dart';
 import 'package:blog_app/routing/routes.dart';
 import 'package:blog_app/ui/auth/login/widgets/forgot_password_screen.dart';
 import 'package:blog_app/ui/auth/login/widgets/launch_screen.dart';
@@ -21,6 +22,7 @@ final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 class AppRouter {
   static GoRouter getRouter() {
     final GoRouter router = GoRouter(
+      navigatorKey: navigatorKey,
       initialLocation: '/', // always start from launch screen
       debugLogDiagnostics: true,
       observers: [routeObserver],

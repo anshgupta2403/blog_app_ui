@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:blog_app/data/models/app_notification_model.dart';
 import 'package:blog_app/data/models/app_user_model.dart';
 import 'package:blog_app/data/models/blog_post_model.dart';
 import 'package:blog_app/data/models/comment_model.dart';
@@ -17,6 +19,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final BlogRepository _blogRepository;
   DocumentSnapshot? _lastDoc;
   List<BlogPost> _blogs = [];
+  StreamSubscription<List<AppNotification>>? _subscription;
+  List<AppNotification> _notifications = [];
 
   HomeBloc(this._blogRepository) : super(HomeInitial()) {
     on<PublishPost>(_onPublishPost);
@@ -40,6 +44,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<UpdatePost>(_onUpdatePost);
     on<UpdateProfile>(_onUpdateProfile);
     on<SignOut>(_onSignOut);
+    on<LoadNotifications>(_onLoad);
+    on<NewNotificationReceived>(_onNew);
+    on<DeleteNotification>(_onDeleteNotification);
+    on<MarkNotificationAsRead>(_onMarkNotificationAsRead);
+    on<LoadBlogSummary>(_onLoadBlogSummary);
   }
 
   Future<void> _onPublishPost(
@@ -360,5 +369,92 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     } catch (e) {
       emit(SignOutFailure('Sign Out Failed'));
     }
+  }
+
+  Future<void> _onLoad(LoadNotifications event, Emitter<HomeState> emit) async {
+    emit(NotificationLoading());
+
+    try {
+      await _subscription?.cancel(); // Cancel previous listener if any
+
+      // Replace manual `listen()` with emit.forEach
+      final stream = _blogRepository.getNotifications(event.uid!);
+
+      await emit.forEach<List<AppNotification>>(
+        stream,
+        onData: (notifs) {
+          _notifications = notifs;
+          final unreadCount = notifs.where((n) => !n.isRead).length;
+
+          return NotificationLoaded(
+            notifications: _notifications,
+            unreadCount: unreadCount,
+          );
+        },
+        onError: (e, _) {
+          debugPrint(e.toString());
+          return NotificationError('Failed to load notifications');
+        },
+      );
+    } catch (e) {
+      debugPrint(e.toString());
+      emit(NotificationError('Failed to load notifications'));
+    }
+  }
+
+  void _onNew(NewNotificationReceived event, Emitter<HomeState> emit) {
+    if (state is NotificationLoaded) {
+      final current = (state as NotificationLoaded).notifications;
+      final updated = [event.notification, ...current];
+      final unreadCount = updated.where((n) => !n.isRead).length;
+
+      emit(
+        NotificationLoaded(notifications: updated, unreadCount: unreadCount),
+      );
+    }
+  }
+
+  Future<void> _onDeleteNotification(
+    DeleteNotification event,
+    Emitter<HomeState> emit,
+  ) async {
+    try {
+      await _blogRepository.deleteNotification(
+        event.notificationId,
+        event.userId!,
+      );
+    } catch (_) {
+      emit(NotificationError('Failed to delete notification'));
+    }
+  }
+
+  Future<void> _onMarkNotificationAsRead(
+    MarkNotificationAsRead event,
+    Emitter<HomeState> emit,
+  ) async {
+    try {
+      await _blogRepository.markAsRead(event.notificationId, event.userId!);
+    } catch (_) {
+      emit(NotificationError('Failed to mark as read'));
+    }
+  }
+
+  Future<void> _onLoadBlogSummary(
+    LoadBlogSummary event,
+    Emitter<HomeState> emit,
+  ) async {
+    emit(LoadBlogSummaryRequested());
+    try {
+      final blogPost = await _blogRepository.getBlogSummary(event.postId);
+      emit(LoadBlogSummarySuccess(blogPost));
+    } catch (e) {
+      emit(LoadBlogSummaryfailure('Error loading blog.'));
+    }
+  }
+
+  @override
+  Future<void> close() {
+    _subscription?.cancel();
+    return super.close();
   }
 }

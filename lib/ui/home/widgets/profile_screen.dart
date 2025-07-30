@@ -35,6 +35,12 @@ class ProfileScreen extends StatelessWidget {
                   style: TextStyle(color: Colors.white),
                 ),
                 centerTitle: true,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () {
+                    GoRouter.of(context).pop();
+                  },
+                ),
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.logout, color: Colors.white),
@@ -117,7 +123,24 @@ class ProfileScreen extends StatelessWidget {
                                         Map<String, dynamic>
                                       >(
                                         context: context,
-                                        builder: (_) => const FilterSortModal(),
+                                        builder: (_) => FilterSortModal(
+                                          initialSort:
+                                              state is ProfileBlogLoaded
+                                              ? state.sortBy
+                                              : null,
+                                          initialCategories:
+                                              state is ProfileBlogLoaded
+                                              ? state.categories
+                                              : [],
+                                          initialDateRange:
+                                              state is ProfileBlogLoaded &&
+                                                  state.startDate != null
+                                              ? DateTimeRange(
+                                                  start: state.startDate!,
+                                                  end: state.endDate!,
+                                                )
+                                              : null,
+                                        ),
                                       );
                                   if (result != null) {
                                     final uid =
@@ -193,7 +216,15 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class FilterSortModal extends StatefulWidget {
-  const FilterSortModal({super.key});
+  final List<String> initialCategories;
+  final String? initialSort;
+  final DateTimeRange? initialDateRange;
+  const FilterSortModal({
+    super.key,
+    this.initialCategories = const [],
+    this.initialSort,
+    this.initialDateRange,
+  });
 
   @override
   State<FilterSortModal> createState() => _FilterSortModalState();
@@ -203,168 +234,183 @@ class _FilterSortModalState extends State<FilterSortModal> {
   final List<String> categories = ['Tech', 'Travel', 'Lifestyle', 'Education'];
   final List<String> sortOptions = ['Recent', 'Popular'];
 
-  final Set<String> selectedCategories = {};
+  late Set<String> selectedCategories = {};
   String? selectedSort;
   DateTimeRange? selectedDateRange;
 
   @override
+  void initState() {
+    super.initState();
+    selectedCategories = widget.initialCategories.toSet();
+    selectedSort = widget.initialSort;
+    selectedDateRange = widget.initialDateRange;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+    final mediaQuery = MediaQuery.of(context);
+    final availableHeight = mediaQuery.size.height * 0.85;
+
+    return SafeArea(
       child: Container(
+        constraints: BoxConstraints(maxHeight: availableHeight),
         padding: const EdgeInsets.all(16),
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Wrap(
-          runSpacing: 16,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(2),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const Text(
-              'Filter & Sort',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
+              const Text(
+                'Filter & Sort',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
 
-            // Category Chips
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Category',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: categories.map((cat) {
-                    final isSelected = selectedCategories.contains(cat);
-                    return FilterChip(
-                      label: Text(cat),
-                      selected: isSelected,
-                      onSelected: (val) {
-                        setState(() {
-                          if (val) {
-                            selectedCategories.add(cat);
-                          } else {
-                            selectedCategories.remove(cat);
-                          }
-                        });
-                      },
-                      selectedColor: Colors.deepPurpleAccent,
-                      showCheckmark: true,
-                      checkmarkColor: Colors.white,
-                      backgroundColor: Colors.grey[200],
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black87,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+              // Categories
+              const Text(
+                'Category',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: categories.map((cat) {
+                  final isSelected = selectedCategories.contains(cat);
+                  return FilterChip(
+                    label: Text(cat),
+                    selected: isSelected,
+                    onSelected: (val) {
+                      setState(() {
+                        if (val) {
+                          selectedCategories.add(cat);
+                        } else {
+                          selectedCategories.remove(cat);
+                        }
+                      });
+                    },
+                    selectedColor: Colors.deepPurpleAccent,
+                    showCheckmark: true,
+                    checkmarkColor: Colors.white,
+                    backgroundColor: Colors.grey[200],
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Sort Options
+              const Text(
+                'Sort By',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              ToggleButtons(
+                isSelected: sortOptions
+                    .map((s) => s == selectedSort)
+                    .toList(growable: false),
+                onPressed: (index) {
+                  setState(() {
+                    selectedSort = sortOptions[index];
+                  });
+                },
+                borderRadius: BorderRadius.circular(12),
+                selectedColor: Colors.white,
+                fillColor: Colors.deepPurpleAccent,
+                color: Colors.black87,
+                constraints: const BoxConstraints(minWidth: 100, minHeight: 40),
+                children: sortOptions
+                    .map((s) => Text(s, style: const TextStyle(fontSize: 14)))
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Date Range
+              const Text(
+                'Date Range',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDateRangePicker(
+                    context: context,
+                    initialDateRange: selectedDateRange,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) {
+                    setState(() => selectedDateRange = picked);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        selectedDateRange != null
+                            ? "${DateFormat('dd MMM yyyy').format(selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(selectedDateRange!.end)}"
+                            : 'Select date range',
+                        style: const TextStyle(fontSize: 14),
                       ),
-                    );
-                  }).toList(),
+                      const Icon(Icons.calendar_today_rounded, size: 20),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 24),
 
-            // Sort Options Toggle
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Sort By',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                ToggleButtons(
-                  isSelected: sortOptions
-                      .map((s) => s == selectedSort)
-                      .toList(growable: false),
-                  onPressed: (index) {
+              //Reset Button
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () {
                     setState(() {
-                      selectedSort = sortOptions[index];
+                      selectedCategories.clear();
+                      selectedSort = null;
+                      selectedDateRange = null;
+                      Navigator.pop(context, {
+                        'categories': selectedCategories.toList(),
+                        'sortBy': selectedSort,
+                        'startDate': selectedDateRange?.start,
+                        'endDate': selectedDateRange?.end,
+                      });
                     });
                   },
-                  borderRadius: BorderRadius.circular(12),
-                  selectedColor: Colors.white,
-                  fillColor: Colors.deepPurpleAccent,
-                  color: Colors.black87,
-                  constraints: const BoxConstraints(
-                    minWidth: 100,
-                    minHeight: 40,
-                  ),
-                  children: sortOptions
-                      .map(
-                        (sort) =>
-                            Text(sort, style: const TextStyle(fontSize: 14)),
-                      )
-                      .toList(),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Reset Filters'),
                 ),
-              ],
-            ),
-
-            // Date Range Picker
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Date Range',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () async {
-                    final picked = await showDateRangePicker(
-                      context: context,
-                      initialDateRange: selectedDateRange,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) {
-                      setState(() => selectedDateRange = picked);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          selectedDateRange != null
-                              ? "${DateFormat('dd MMM yyyy').format(selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(selectedDateRange!.end)}"
-                              : 'Select date range',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        const Icon(Icons.calendar_today_rounded, size: 20),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            // Apply Button
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: SizedBox(
+              ),
+              const SizedBox(height: 12),
+              // Apply Button
+              SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
@@ -386,8 +432,8 @@ class _FilterSortModalState extends State<FilterSortModal> {
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -471,7 +517,7 @@ class _BlogListState extends State<BlogList> with RouteAware {
             controller: _scrollController,
             padding: const EdgeInsets.all(12),
             itemCount: blogs.length + (state.hasMore ? 1 : 0),
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               if (index < blogs.length) {
                 final blog = blogs[index];

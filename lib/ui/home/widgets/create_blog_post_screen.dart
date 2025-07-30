@@ -93,6 +93,12 @@ class _CreatePostBlogScreenState extends State<CreatePostBlogScreen> {
                   : 'Create Blog Post',
               style: TextStyle(color: Colors.white),
             ),
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () {
+                GoRouter.of(context).pop();
+              },
+            ),
           ),
           body: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -142,7 +148,7 @@ class _CreatePostBlogScreenState extends State<CreatePostBlogScreen> {
                           : () {
                               final title = titleController.text.trim();
                               final content = contentController.text.trim();
-                              final category = selectedCategory!;
+                              final category = selectedCategory ?? 'Tech';
 
                               if (widget.postId?.trim().isNotEmpty ?? false) {
                                 // Update existing post
