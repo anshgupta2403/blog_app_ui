@@ -9,7 +9,7 @@ class AppLocalizationsEs extends AppLocalizations {
   AppLocalizationsEs([String locale = 'es']) : super(locale);
 
   @override
-  String get welcome => '¡Bienvenido a Blogify!';
+  String get welcome => '¡Bienvenido a Blogggify!';
 
   @override
   String get readBlogs => 'Lee blogs increíbles';

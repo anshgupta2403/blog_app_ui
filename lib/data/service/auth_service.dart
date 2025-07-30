@@ -38,6 +38,7 @@ class AuthService {
       name: name,
       createdAt: DateTime.timestamp(),
       uid: user?.uid,
+      profileImageUrl: '',
     );
     _firebaseNotificationsService.initNotifications();
     _saveCurrentUser(user?.uid);
@@ -60,6 +61,13 @@ class AuthService {
     );
     final result = await _auth.signInWithCredential(credential);
     if (result.user != null) {
+      _addNewUserToUsersCollection(
+        email: result.user?.email,
+        name: result.user?.displayName,
+        createdAt: DateTime.timestamp(),
+        uid: result.user?.uid,
+        profileImageUrl: result.user?.photoURL,
+      );
       _firebaseNotificationsService.initNotifications();
       _saveCurrentUser(result.user?.uid);
     }
@@ -104,6 +112,7 @@ class AuthService {
     required String? name,
     required DateTime? createdAt,
     required String? uid,
+    required String? profileImageUrl,
   }) async {
     try {
       print(_auth.currentUser);
@@ -113,7 +122,7 @@ class AuthService {
         'name': name,
         'createdAt': createdAt?.toIso8601String(),
         'bio': '',
-        'profileImageUrl': '',
+        'profileImageUrl': profileImageUrl,
         'totalPosts': 0,
         'totalLikes': 0,
         'followersCount': 0,

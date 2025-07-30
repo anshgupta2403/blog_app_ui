@@ -103,7 +103,6 @@ class _LaunchScreenState extends State<LaunchScreen> {
                   ),
                   child: SizedBox(
                     width: double.infinity,
-                    height: 48,
                     child: OutlinedButton(
                       onPressed: () {
                         if (isLastPage) {

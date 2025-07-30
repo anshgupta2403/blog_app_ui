@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get welcome => 'Welcome to Blogify!';
+  String get welcome => 'Welcome to Blogggify!';
 
   @override
   String get readBlogs => 'Read amazing blogs';
