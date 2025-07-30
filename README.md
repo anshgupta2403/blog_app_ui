@@ -1,16 +1,66 @@
-# blog_app
+# 📝 Flutter Blog App
 
-A new Flutter project.
+A full-stack blog application built with **Flutter**, **Firebase**, and **BLoC** architecture. It allows users to register, create, read, edit, and delete blog posts with a modern, responsive UI and robust backend integration.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🚀 Features
 
-A few resources to get you started if this is your first Flutter project:
+### ✅ Authentication
+- Email + OTP (EmailJS) verification
+- Secure login via email/password
+- Google Sign-In
+- Forgot/Reset password flow
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### 📝 Blogging
+- Create, edit, and delete blogs
+- Tag-based categorization
+- Search blogs by title
+- Filter your blogs by category,date or sort based on recent|popular
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### 📚 Reading & Interaction
+- Read blogs with smooth UI
+- Like, comment, and share posts
+- Follow/unfollow authors
+- Notifications for new Posts
+
+### 🔧 Architecture
+- Clean Architecture with BLoC pattern
+- Firebase Firestore, Auth, and Storage
+- Cloud Functions (for notifications, rate limiting, etc.)
+- Firestore Emulator support for local development
+
+## 🛠️ Tech Stack
+
+| Tech | Usage |
+|------|--------|
+| Flutter | Frontend UI |
+| Firebase | Auth, Firestore, Storage |
+| Firebase Functions | Server-side logic |
+| BLoC | State Management |
+
+---
+
+## 🧑‍💻 Getting Started
+
+### Prerequisites
+- Flutter 3.x
+- Firebase CLI
+- Dart 3.x
+- Node.js (for Firebase Functions)
+
+### 🔧 Setup
+
+# Clone the repo
+git clone https://github.com/anshgupta2403/flutter_blog_app.git
+cd blog_app_ui
+
+# Install dependencies
+flutter pub get
+
+# Setup Firebase
+firebase init
+flutterfire configure
+
+# Run app
+flutter run
