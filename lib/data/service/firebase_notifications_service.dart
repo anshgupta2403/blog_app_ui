@@ -138,6 +138,7 @@ class FirebaseNotificationsService {
         postId: decoded['postId'],
         preview: decoded['preview'],
         uid: decoded['uid'],
+        authorImage: '',
       );
 
       GoRouter.of(

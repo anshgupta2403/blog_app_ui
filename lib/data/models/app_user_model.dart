@@ -49,18 +49,18 @@ class AppUser {
     );
   }
 
-  factory AppUser.fromFirebaseAppUser(AppUser user) {
+  factory AppUser.fromFirebaseAppUser(Map<String, dynamic> user) {
     return AppUser(
-      uid: user.uid,
-      name: user.name,
-      email: user.email,
-      fcmToken: user.fcmToken,
-      bio: user.bio,
-      profileImageUrl: user.profileImageUrl,
-      totalPosts: user.totalPosts,
-      totalLikes: user.totalLikes,
-      followersCount: user.followersCount,
-      followingCount: user.followersCount,
+      uid: user['uid'],
+      name: user['name'],
+      email: user['email'],
+      fcmToken: user['fcmToken'],
+      bio: user['bio'],
+      profileImageUrl: user['profileImageUrl'],
+      totalPosts: user['totalPosts'],
+      totalLikes: user['totalLikes'],
+      followersCount: user['followersCount'],
+      followingCount: user['followersCount'],
     );
   }
 

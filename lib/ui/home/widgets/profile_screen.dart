@@ -8,13 +8,22 @@ import 'package:blog_app/ui/core/utils/session_manager_utils.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final user = SessionManager().currentUser;
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<HomeBloc>().add(GetUser(SessionManager().currentUser?.uid));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return BlocConsumer<HomeBloc, HomeState>(
       listener: (context, state) {
         if (state is SignOutSuccess) {
@@ -26,6 +35,10 @@ class ProfileScreen extends StatelessWidget {
         }
       },
       builder: (context, state) {
+        if (state is GetUserRequested) {
+          return Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final user = SessionManager().currentUser;
         return Stack(
           children: [
             Scaffold(

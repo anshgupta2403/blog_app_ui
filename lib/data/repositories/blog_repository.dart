@@ -26,15 +26,17 @@ class BlogRepository {
     );
   }
 
-  Future<List<BlogPost>> getBlogsByCategory({
+  Future<List<DocumentSnapshot>> getBlogsByCategory({
     required String category,
     int limit = 10,
     bool isRefresh = false,
+    DocumentSnapshot? lastDoc,
   }) {
     return _blogService.getBlogsByCategory(
       category: category,
       limit: limit,
       isRefresh: isRefresh,
+      lastDoc: lastDoc,
     );
   }
 
@@ -89,8 +91,18 @@ class BlogRepository {
     );
   }
 
-  Future<List<BlogPost>> searchBlogsByTitle(String query, String category) {
-    return _blogService.searchBlogsByTitle(query, category);
+  Future<List<DocumentSnapshot>> searchBlogsByTitle({
+    required String searchQuery,
+    required String category,
+    required int limit,
+    DocumentSnapshot? lastDoc,
+  }) {
+    return _blogService.searchBlogsByTitle(
+      searchQuery: searchQuery,
+      category: category,
+      limit: limit,
+      lastDoc: lastDoc,
+    );
   }
 
   Future<BlogQueryResult> getUserBlogs({
@@ -147,7 +159,7 @@ class BlogRepository {
     await _blogService.updateProfile(
       name: name,
       uid: uid,
-      profileImageUrl: profileImageUrl,
+      profileImageFile: profileImageUrl,
     );
   }
 
@@ -169,5 +181,9 @@ class BlogRepository {
 
   Future<BlogPost> getBlogSummary(String postId) {
     return _blogService.getBlogSummary(postId);
+  }
+
+  Future<void> getCurrentUser(String uid) async {
+    await _blogService.getCurrentUser(uid);
   }
 }

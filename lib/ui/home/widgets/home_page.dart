@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:blog_app/data/models/blog_post_model.dart';
 import 'package:blog_app/routing/router.dart';
 import 'package:blog_app/routing/routes.dart';
 import 'package:blog_app/ui/core/utils/common_utils.dart';
@@ -17,6 +20,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin, RouteAware {
   late TabController _tabController;
+  final textFieldController = TextEditingController();
 
   final List<String> categories = [
     'Tech',
@@ -33,7 +37,7 @@ class _HomePageState extends State<HomePage>
 
     // Initial fetch for the first tab
     context.read<HomeBloc>().add(
-      LoadBlogs(category: categories[0], isRefresh: true),
+      LoadBlogs(category: categories[0], categoryChange: true),
     );
 
     _tabController.addListener(() {
@@ -44,8 +48,9 @@ class _HomePageState extends State<HomePage>
 
       final currentCategory = categories[_tabController.index];
       context.read<HomeBloc>().add(
-        LoadBlogs(category: currentCategory, isRefresh: true),
+        LoadBlogs(category: currentCategory, categoryChange: true),
       );
+      textFieldController.text = '';
     });
   }
 
@@ -73,7 +78,7 @@ class _HomePageState extends State<HomePage>
     if (currentIndex < categories.length && mounted) {
       final currentCategory = categories[currentIndex];
       context.read<HomeBloc>().add(
-        LoadBlogs(category: currentCategory, isRefresh: true),
+        LoadBlogs(category: currentCategory, categoryChange: true),
       );
     }
   }
@@ -81,7 +86,6 @@ class _HomePageState extends State<HomePage>
   @override
   Widget build(BuildContext context) {
     final profileImageUrl = SessionManager().currentUser?.profileImageUrl;
-
     return Scaffold(
       backgroundColor: Colors.deepPurple[50],
       appBar: AppBar(
@@ -121,6 +125,7 @@ class _HomePageState extends State<HomePage>
                       ),
                     );
                   },
+                  controller: textFieldController,
                   style: const TextStyle(fontSize: 14),
                   decoration: InputDecoration(
                     hintText: 'Search blogs...',
@@ -343,25 +348,26 @@ class BlogList extends StatefulWidget {
 
 class _BlogListState extends State<BlogList> {
   late ScrollController _scrollController;
+  Map<String, List<BlogPost>> blogs = {};
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController()..addListener(_onScroll);
-    // Removed initial load here to avoid duplicate fetch
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 300) {
-      _loadMoreBlogs();
+    if (_scrollController.position.atEdge) {
+      if (_scrollController.position.pixels != 0) {
+        _loadMoreBlogs();
+      }
     }
   }
 
   void _loadMoreBlogs() {
     if (mounted) {
       context.read<HomeBloc>().add(
-        LoadBlogs(category: widget.category, isRefresh: false),
+        LoadBlogs(category: widget.category, categoryChange: false),
       );
     }
   }
@@ -376,16 +382,34 @@ class _BlogListState extends State<BlogList> {
   Widget build(BuildContext context) {
     return BlocBuilder<HomeBloc, HomeState>(
       builder: (context, state) {
-        if (state is BlogsLoading) {
+        if (state is BlogsLoading && state.isFirstFetch) {
           return const Center(child: CircularProgressIndicator());
-        } else if (state is BlogsLoaded && state.categoryBlogs.isNotEmpty) {
-          final blogs = state.categoryBlogs;
-          return ListView.separated(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(12),
-            itemCount: blogs.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
+        }
+
+        if (state is BlogsLoaded && state.categoryBlogs.isEmpty) {
+          return Center(child: Text('No blogs found'));
+        }
+        if (state is BlogsError) {
+          return const Center(child: Text('No blogs found.'));
+        }
+
+        List<BlogPost> blogs = [];
+        bool isLoading = false;
+
+        if (state is BlogsLoading) {
+          blogs = state.oldBlogs;
+          isLoading = true;
+        } else if (state is BlogsLoaded) {
+          blogs = state.categoryBlogs;
+        }
+
+        return ListView.separated(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(12),
+          itemCount: blogs.length + 1,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            if (index < blogs.length) {
               final blog = blogs[index];
               return InkWell(
                 onTap: () {
@@ -399,7 +423,7 @@ class _BlogListState extends State<BlogList> {
                           context.read<HomeBloc>().add(
                             LoadBlogs(
                               category: widget.category,
-                              isRefresh: true,
+                              categoryChange: true,
                             ),
                           );
                         }
@@ -417,9 +441,13 @@ class _BlogListState extends State<BlogList> {
                       children: [
                         Row(
                           children: [
-                            const CircleAvatar(
-                              backgroundColor: Colors.deepPurple,
-                              child: Icon(Icons.person, color: Colors.white),
+                            CircleAvatar(
+                              backgroundImage: blog.authorImage != ''
+                                  ? NetworkImage(blog.authorImage)
+                                  : null,
+                              child: blog.authorImage == ''
+                                  ? Icon(Icons.person, color: Colors.white)
+                                  : null,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -485,13 +513,23 @@ class _BlogListState extends State<BlogList> {
                   ),
                 ),
               );
-            },
-          );
-        } else if (state is BlogsError) {
-          return Center(child: Text('Error: ${state.message}'));
-        } else {
-          return const Center(child: Text('No blogs found.'));
-        }
+            } else {
+              Timer(Duration(milliseconds: 30), () {
+                _scrollController.jumpTo(
+                  _scrollController.position.maxScrollExtent,
+                );
+              });
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Center(
+                  child: isLoading
+                      ? CircularProgressIndicator()
+                      : Text('No more blogs'),
+                ),
+              );
+            }
+          },
+        );
       },
     );
   }

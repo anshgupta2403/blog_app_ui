@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:blog_app/data/models/app_notification_model.dart';
-import 'package:blog_app/data/models/app_user_model.dart';
 import 'package:blog_app/data/models/blog_post_model.dart';
 import 'package:blog_app/data/models/blog_result_model.dart';
 import 'package:blog_app/data/models/comment_model.dart';
@@ -23,23 +22,19 @@ class BlogService {
     required String category,
     required DateTime createdAt,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _auth.currentUser;
     if (user == null) return;
 
-    final authorDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
+    final authorDoc = await _firestore.collection('users').doc(user.uid).get();
     final authorName = authorDoc['name'] ?? 'Anonymous';
 
-    final postRef = FirebaseFirestore.instance
-        .collection('posts_summary')
-        .doc();
-
+    final postRef = _firestore.collection('posts_summary').doc();
     final usersRef = _firestore.collection('users').doc(user.uid);
-    int totalPosts = SessionManager().currentUser?.totalPosts ?? 0;
 
     await _firestore.runTransaction((txn) async {
+      final userSnapshot = await txn.get(usersRef);
+      final totalPosts = userSnapshot.data()?['totalPosts'] ?? 0;
+
       txn.set(postRef, {
         'title': title,
         'category': category,
@@ -50,21 +45,23 @@ class BlogService {
         'numComments': 0,
         'preview': content.length > 100 ? content.substring(0, 100) : content,
         'titleLowercase': title.toLowerCase(),
+        'authorImage': authorDoc['profileImageUrl'],
       });
 
-      txn.set(
-        FirebaseFirestore.instance.collection('posts_content').doc(postRef.id),
-        {'postId': postRef.id, 'content': content},
-      );
+      txn.set(_firestore.collection('posts_content').doc(postRef.id), {
+        'postId': postRef.id,
+        'content': content,
+      });
 
       txn.update(usersRef, {'totalPosts': totalPosts + 1});
     });
   }
 
-  Future<List<BlogPost>> getBlogsByCategory({
+  Future<List<DocumentSnapshot>> getBlogsByCategory({
     required String category,
     required int limit,
     required bool isRefresh,
+    required DocumentSnapshot? lastDoc,
   }) async {
     Query query = _firestore
         .collection('posts_summary')
@@ -72,41 +69,31 @@ class BlogService {
         .orderBy('createdAt', descending: true)
         .limit(limit);
 
-    final snapshot = await query.get();
-    if (SessionManager().currentUser == null) {
-      _saveCurrentUser(_auth.currentUser?.uid);
+    if (lastDoc != null) {
+      query = query.startAfterDocument(lastDoc);
     }
-    return snapshot.docs.map((doc) => BlogPost.fromSnapshot(doc)).toList();
+    if (SessionManager().currentUser == null) {
+      await getCurrentUser(_auth.currentUser?.uid);
+    }
+
+    final snapshot = await query.get();
+
+    return snapshot.docs;
   }
 
-  Future<void> _saveCurrentUser(String? uid) async {
+  Future<void> getCurrentUser(String? uid) async {
     final user = await _firestore.collection('users').doc(uid).get();
-    final AppUser appUser = AppUser(
-      uid: user['uid'],
-      name: user['name'],
-      email: user['email'],
-      fcmToken: user['fcmToken'],
-      bio: user['bio'],
-      profileImageUrl: user['profileImageUrl'],
-      totalPosts: user['totalPosts'],
-      totalLikes: user['totalLikes'],
-      followersCount: user['followersCount'],
-      followingCount: user['followingCount'],
-    );
-    SessionManager().setUser(appUser);
-    print('_saveCurrenyUser: ${SessionManager().currentUser?.uid}');
+    SessionManager().setUser(user.data()!);
   }
 
   void resetPagination() {
     _lastVisible = null;
   }
 
-  //Get blog details by id
   Future<DocumentSnapshot> getBlogById(String postId) async {
     return await _firestore.collection('posts_content').doc(postId).get();
   }
 
-  //Get comments on post by id
   Future<List<Comment>> fetchComments(
     String postId, {
     DocumentSnapshot? lastDoc,
@@ -128,9 +115,7 @@ class BlogService {
 
   Future<void> addComment(String postId, Comment comment) async {
     final postRef = _firestore.collection('posts_summary').doc(postId);
-    final commentRef = postRef
-        .collection('comments')
-        .doc(); // auto-generated ID
+    final commentRef = postRef.collection('comments').doc();
 
     final commentData = {
       'commentId': commentRef.id,
@@ -140,26 +125,17 @@ class BlogService {
       'createdAt': FieldValue.serverTimestamp(),
     };
 
-    try {
-      await _firestore.runTransaction((transaction) async {
-        // Check if the post exists
-        final postSnapshot = await transaction.get(postRef);
-        if (!postSnapshot.exists) {
-          throw Exception('Post does not exist');
-        }
+    await _firestore.runTransaction((txn) async {
+      final postSnapshot = await txn.get(postRef);
+      if (!postSnapshot.exists) {
+        throw Exception('Post does not exist');
+      }
 
-        // Add the comment
-        transaction.set(commentRef, commentData);
-
-        // Atomically increment the comment count
-        transaction.update(postRef, {'numComments': FieldValue.increment(1)});
-      });
-    } catch (e) {
-      throw Exception('Failed to add comment atomically: $e');
-    }
+      txn.set(commentRef, commentData);
+      txn.update(postRef, {'numComments': FieldValue.increment(1)});
+    });
   }
 
-  //Like/Unlike the post
   Future<void> toggleLikePost(
     String postId,
     String userId,
@@ -169,33 +145,26 @@ class BlogService {
     final likeRef = postRef.collection('likes').doc(userId);
     final userRef = _firestore.collection('users').doc(authorId);
 
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      final likeSnapshot = await transaction.get(likeRef);
-      final postSnapshot = await transaction.get(postRef);
-      final userSnapshot = await transaction.get(userRef);
+    await _firestore.runTransaction((txn) async {
+      final likeSnapshot = await txn.get(likeRef);
+      final postSnapshot = await txn.get(postRef);
+      final userSnapshot = await txn.get(userRef);
 
-      int currentLikes = postSnapshot.data()?['likesCount'] ?? 0;
+      int currentLikes = postSnapshot.data()?['numLikes'] ?? 0;
       int totalLikes = userSnapshot.data()?['totalLikes'] ?? 0;
 
       if (likeSnapshot.exists) {
-        // User already liked, so unlike
-        transaction.delete(likeRef);
-        transaction.update(postRef, {
-          'numLikes': currentLikes > 0 ? currentLikes - 1 : 0,
-        });
-        transaction.update(userRef, {
-          'totalLikes': totalLikes > 0 ? totalLikes - 1 : 0,
-        });
+        txn.delete(likeRef);
+        txn.update(postRef, {'numLikes': currentLikes - 1});
+        txn.update(userRef, {'totalLikes': totalLikes - 1});
       } else {
-        // User hasn't liked, so add like
-        transaction.set(likeRef, {'likedAt': FieldValue.serverTimestamp()});
-        transaction.update(postRef, {'numLikes': currentLikes + 1});
-        transaction.update(userRef, {'totalLikes': totalLikes + 1});
+        txn.set(likeRef, {'likedAt': FieldValue.serverTimestamp()});
+        txn.update(postRef, {'numLikes': currentLikes + 1});
+        txn.update(userRef, {'totalLikes': totalLikes + 1});
       }
     });
   }
 
-  // Check if post already liked
   Future<bool> isPostLiked(String postId, String? userId) async {
     final doc = await _firestore
         .collection('posts_summary')
@@ -207,57 +176,51 @@ class BlogService {
   }
 
   Future<void> followAuthor(String followerId, String authorId) async {
-    final batch = _firestore.batch();
-
     final usersRef = _firestore.collection('users').doc(authorId);
     final authorRef = _firestore.collection('users').doc(followerId);
-    int? totalFollowers = SessionManager().currentUser?.followersCount;
-    int? totalFollowing = SessionManager().currentUser?.followingCount;
 
     final followerRef = usersRef.collection('followers').doc(followerId);
-
     final followingRef = authorRef.collection('following').doc(authorId);
 
-    final timestamp = FieldValue.serverTimestamp();
+    await _firestore.runTransaction((txn) async {
+      final userSnapshot = await txn.get(usersRef);
+      final authorSnapshot = await txn.get(authorRef);
 
-    // Add currentUserId to targetUserId's followers
-    batch.set(followerRef, {'followerId': followerId, 'followedAt': timestamp});
+      int followersCount = userSnapshot.data()?['followersCount'] ?? 0;
+      int followingCount = authorSnapshot.data()?['followingCount'] ?? 0;
 
-    // Add targetUserId to currentUserId's following
-    batch.set(followingRef, {'authorId': authorId, 'followedAt': timestamp});
-
-    batch.update(usersRef, {'followersCount': totalFollowers! + 1});
-    batch.update(authorRef, {'followingCount': totalFollowing! + 1});
-
-    await batch.commit();
+      txn.set(followerRef, {
+        'followerId': followerId,
+        'followedAt': FieldValue.serverTimestamp(),
+      });
+      txn.set(followingRef, {
+        'authorId': authorId,
+        'followedAt': FieldValue.serverTimestamp(),
+      });
+      txn.update(usersRef, {'followersCount': followersCount + 1});
+      txn.update(authorRef, {'followingCount': followingCount + 1});
+    });
   }
 
   Future<void> unfollowAuthor(String followerId, String authorId) async {
-    final batch = _firestore.batch();
-
     final usersRef = _firestore.collection('users').doc(authorId);
     final authorRef = _firestore.collection('users').doc(followerId);
-    int? totalFollowers = SessionManager().currentUser?.followersCount;
-    int? totalFollowing = SessionManager().currentUser?.followingCount;
 
-    final followingRef = _firestore
-        .collection('users')
-        .doc(followerId)
-        .collection('following')
-        .doc(authorId);
-    final followersRef = _firestore
-        .collection('users')
-        .doc(authorId)
-        .collection('followers')
-        .doc(followerId);
+    final followingRef = authorRef.collection('following').doc(authorId);
+    final followersRef = usersRef.collection('followers').doc(followerId);
 
-    batch.delete(followingRef);
-    batch.delete(followersRef);
+    await _firestore.runTransaction((txn) async {
+      final userSnapshot = await txn.get(usersRef);
+      final authorSnapshot = await txn.get(authorRef);
 
-    batch.update(usersRef, {'followersCount': totalFollowers! - 1});
-    batch.update(authorRef, {'followingCount': totalFollowing! - 1});
+      int followersCount = userSnapshot.data()?['followersCount'] ?? 0;
+      int followingCount = authorSnapshot.data()?['followingCount'] ?? 0;
 
-    await batch.commit();
+      txn.delete(followingRef);
+      txn.delete(followersRef);
+      txn.update(usersRef, {'followersCount': followersCount - 1});
+      txn.update(authorRef, {'followingCount': followingCount - 1});
+    });
   }
 
   Future<bool> isFollowing({
@@ -273,19 +236,29 @@ class BlogService {
     return doc.exists;
   }
 
-  Future<List<BlogPost>> searchBlogsByTitle(
-    String query,
-    String category,
-  ) async {
-    final snapshot = await _firestore
+  Future<List<DocumentSnapshot>> searchBlogsByTitle({
+    required String searchQuery,
+    required String category,
+    required int limit,
+    DocumentSnapshot? lastDoc,
+  }) async {
+    var query = _firestore
         .collection('posts_summary')
         .where('category', isEqualTo: category)
-        .where('titleLowercase', isGreaterThanOrEqualTo: query.toLowerCase())
-        .where('titleLowercase', isLessThan: '${query.toLowerCase()}\uf8ff')
+        .where(
+          'titleLowercase',
+          isGreaterThanOrEqualTo: searchQuery.toLowerCase(),
+        )
+        .where('titleLowercase', isLessThan: '${searchQuery.toLowerCase()}')
         .orderBy('titleLowercase')
-        .get();
+        .limit(limit);
 
-    return snapshot.docs.map((doc) => BlogPost.fromSnapshot(doc)).toList();
+    if (lastDoc != null) {
+      query = query.startAfterDocument(lastDoc);
+    }
+
+    final snaphots = await query.get();
+    return snaphots.docs;
   }
 
   Future<BlogQueryResult> getUserBlogs({
@@ -353,7 +326,6 @@ class BlogService {
     }
 
     final snapshot = await query.limit(limit).get();
-
     final blogs = snapshot.docs
         .map((doc) => BlogPost.fromSnapshot(doc))
         .toList();
@@ -379,7 +351,6 @@ class BlogService {
     final postRef = _firestore.collection('posts_summary').doc(postId);
     await _firestore.runTransaction((txn) async {
       txn.update(postRef, {'title': title, 'category': category});
-
       txn.update(_firestore.collection('posts_content').doc(postId), {
         'content': content,
       });
@@ -389,36 +360,63 @@ class BlogService {
   Future<void> updateProfile({
     required String? name,
     required String? uid,
-    required File? profileImageUrl,
+    required File? profileImageFile,
   }) async {
-    String imageUrl;
+    if (uid == null) return;
 
-    if (profileImageUrl != null) {
+    final userRef = _firestore.collection('users').doc(uid);
+    String? imageUrl;
+
+    // Step 1: Upload new profile image and update Firestore
+    if (profileImageFile != null) {
       final ref = _firebaseStorage.ref().child('user_profiles/$uid.jpg');
-      await ref.putFile(profileImageUrl);
+      await ref.putFile(profileImageFile);
       imageUrl = await ref.getDownloadURL();
-      await _firestore.collection('users').doc(uid).update({
-        'profileImageUrl': imageUrl,
-      });
+
+      // Update user's profile image
+      await userRef.update({'profileImageUrl': imageUrl});
       _updateProfileImage(imageUrl);
     }
 
+    // Step 2: Update name if provided
     if (name != null) {
-      await _firestore.collection('users').doc(uid).update({'name': name});
+      await userRef.update({'name': name});
       _updateName(name);
+    }
+
+    // Step 3: Update all user's post summaries with new name and/or image
+    if (name != null || imageUrl != null) {
+      final userPosts = await _firestore
+          .collection('posts_summary')
+          .where('uid', isEqualTo: uid)
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in userPosts.docs) {
+        final updates = <String, dynamic>{};
+        if (name != null) updates['authorName'] = name;
+        if (imageUrl != null) updates['authorImage'] = imageUrl;
+        batch.update(doc.reference, updates);
+      }
+
+      await batch.commit();
     }
   }
 
   void _updateName(String name) {
-    AppUser? currentUser = SessionManager().currentUser;
-    currentUser = currentUser?.copyWith(name: name);
-    SessionManager().setUser(currentUser!);
+    final currentUser = SessionManager().currentUser;
+    if (currentUser == null) return;
+
+    final updatedUser = currentUser.copyWith(name: name).toMap();
+    SessionManager().setUser(updatedUser);
   }
 
   void _updateProfileImage(String imageUrl) {
-    AppUser? currentUser = SessionManager().currentUser;
-    currentUser = currentUser?.copyWith(profileImageUrl: imageUrl);
-    SessionManager().setUser(currentUser!);
+    final currentUser = SessionManager().currentUser;
+    if (currentUser == null) return;
+
+    final updatedUser = currentUser.copyWith(profileImageUrl: imageUrl).toMap();
+    SessionManager().setUser(updatedUser);
   }
 
   Future<void> signout() async {

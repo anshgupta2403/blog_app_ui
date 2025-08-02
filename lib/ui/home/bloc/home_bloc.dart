@@ -8,6 +8,7 @@ import 'package:blog_app/data/models/comment_model.dart';
 import 'package:blog_app/data/repositories/blog_repository.dart';
 import 'package:blog_app/ui/core/utils/session_manager_utils.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rxdart/rxdart.dart';
@@ -21,6 +22,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   List<BlogPost> _blogs = [];
   StreamSubscription<List<AppNotification>>? _subscription;
   List<AppNotification> _notifications = [];
+  bool _hasMoreBlogs = true;
+  bool _isLoadingBlogs = false;
+  DocumentSnapshot? _lastBlogDoc;
+  bool _hasMoreQueryBlogs = true;
+  bool _isLoadingQueryBlogs = false;
+  DocumentSnapshot? _lastBlogQueryDoc;
 
   HomeBloc(this._blogRepository) : super(HomeInitial()) {
     on<PublishPost>(_onPublishPost);
@@ -49,6 +56,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<DeleteNotification>(_onDeleteNotification);
     on<MarkNotificationAsRead>(_onMarkNotificationAsRead);
     on<LoadBlogSummary>(_onLoadBlogSummary);
+    on<GetUser>(_onGetUser);
   }
 
   Future<void> _onPublishPost(
@@ -64,18 +72,52 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         createAt: DateTime.now(),
       );
       emit(PublishPostSucess());
+      await Future.delayed(Duration(milliseconds: 100));
+      emit(PublishPostRequested());
     } catch (e) {
       emit(PublishPostFailure(e.toString()));
     }
   }
 
   Future<void> _onLoadBlogs(LoadBlogs event, Emitter<HomeState> emit) async {
-    emit(BlogsLoading());
+    if ((_isLoadingBlogs || !_hasMoreBlogs) && !event.categoryChange) return;
+
+    if (event.categoryChange) {
+      _lastBlogDoc = null;
+    }
+    final currentState = state;
+    var oldPosts = <BlogPost>[];
+
+    if (currentState is BlogsLoaded && !event.categoryChange) {
+      oldPosts = currentState.categoryBlogs;
+    } else {
+      oldPosts = [];
+    }
+
+    emit(BlogsLoading(oldPosts, isFirstFetch: _lastBlogDoc == null));
+
+    _isLoadingBlogs = true;
     try {
-      final blogs = await _blogRepository.getBlogsByCategory(
+      final snapshots = await _blogRepository.getBlogsByCategory(
         category: event.category,
+        limit: 10,
+        lastDoc: _lastBlogDoc,
       );
-      emit(BlogsLoaded(categoryBlogs: blogs));
+      if (snapshots.isNotEmpty) {
+        _lastBlogDoc = snapshots.last;
+      }
+      if (snapshots.length < 10) {
+        _hasMoreBlogs = false;
+      } else {
+        _hasMoreBlogs = true;
+      }
+      _isLoadingBlogs = false;
+      final result = snapshots
+          .map((doc) => BlogPost.fromSnapshot(doc))
+          .toList();
+      final posts = (state as BlogsLoading).oldBlogs;
+      posts.addAll(result);
+      emit(BlogsLoaded(categoryBlogs: posts));
     } catch (e) {
       emit(BlogsError(e.toString()));
     }
@@ -207,16 +249,44 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     SearchQueryChanged event,
     Emitter<HomeState> emit,
   ) async {
-    emit(SearchLoading());
+    if (_isLoadingQueryBlogs || !_hasMoreQueryBlogs) return;
 
+    final currentState = state;
+    var oldPosts = <BlogPost>[];
+
+    if (currentState is BlogsLoaded) {
+      oldPosts = currentState.categoryBlogs;
+    } else {
+      oldPosts = [];
+    }
+
+    emit(BlogsLoading(oldPosts, isFirstFetch: _lastBlogQueryDoc == null));
+
+    _isLoadingQueryBlogs = true;
     try {
-      final results = await _blogRepository.searchBlogsByTitle(
-        event.query,
-        event.category,
+      final snapshots = await _blogRepository.searchBlogsByTitle(
+        searchQuery: event.query,
+        category: event.category,
+        limit: 10,
+        lastDoc: _lastBlogQueryDoc,
       );
-      emit(BlogsLoaded(categoryBlogs: results));
+      if (snapshots.isNotEmpty) {
+        _lastBlogQueryDoc = snapshots.last;
+      }
+      if (snapshots.length < 10) {
+        _hasMoreQueryBlogs = false;
+      } else {
+        _hasMoreQueryBlogs = true;
+      }
+      _isLoadingQueryBlogs = false;
+      final result = snapshots
+          .map((doc) => BlogPost.fromSnapshot(doc))
+          .toList();
+      final posts = (state as BlogsLoading).oldBlogs;
+      posts.addAll(result);
+      emit(BlogsLoaded(categoryBlogs: posts));
     } catch (e) {
-      emit(BlogsError('Something went wrong'));
+      emit(BlogsError(e.toString()));
     }
   }
 
@@ -288,7 +358,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     ApplyFilters event,
     Emitter<HomeState> emit,
   ) async {
-    emit(BlogsLoading());
+    emit(ProfileBlogLoading());
 
     try {
       final result = await _blogRepository.fetchUserBlogs(
@@ -364,7 +434,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       await Future.delayed(const Duration(seconds: 2));
       await _blogRepository.signout();
-      SessionManager().setUser(AppUser());
+      SessionManager().setUser(AppUser().toMap());
       emit(SignOutSuccess());
     } catch (e) {
       emit(SignOutFailure('Sign Out Failed'));
@@ -449,6 +519,16 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(LoadBlogSummarySuccess(blogPost));
     } catch (e) {
       emit(LoadBlogSummaryfailure('Error loading blog.'));
+    }
+  }
+
+  Future<void> _onGetUser(GetUser event, Emitter<HomeState> emit) async {
+    emit(GetUserRequested());
+    try {
+      await _blogRepository.getCurrentUser(event.uid!);
+      emit(GetUserSuccess());
+    } catch (e) {
+      emit(GetUserFailure());
     }
   }
 

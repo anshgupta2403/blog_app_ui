@@ -7,7 +7,7 @@ class SessionManager {
 
   AppUser? _currentUser;
 
-  void setUser(AppUser user) {
+  void setUser(Map<String, dynamic> user) {
     _currentUser = AppUser.fromFirebaseAppUser(user);
   }
 

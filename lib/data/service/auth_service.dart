@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:blog_app/data/models/app_user_model.dart';
 import 'package:blog_app/data/service/firebase_notifications_service.dart';
 import 'package:blog_app/ui/core/utils/session_manager_utils.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -135,19 +134,6 @@ class AuthService {
 
   Future<void> _saveCurrentUser(String? uid) async {
     final user = await _firestore.collection('users').doc(uid).get();
-    final AppUser appUser = AppUser(
-      uid: user['uid'],
-      name: user['name'],
-      email: user['email'],
-      fcmToken: user['fcmToken'],
-      bio: user['bio'],
-      profileImageUrl: user['profileImageUrl'],
-      totalPosts: user['totalPosts'],
-      totalLikes: user['totalLikes'],
-      followersCount: user['followersCount'],
-      followingCount: user['followingCount'],
-    );
-    SessionManager().setUser(appUser);
-    print('_saveCurrenyUser: ${SessionManager().currentUser?.uid}');
+    SessionManager().setUser(user.data()!);
   }
 }

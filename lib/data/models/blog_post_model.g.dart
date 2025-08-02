@@ -18,6 +18,7 @@ BlogPost _$BlogPostFromJson(Map<String, dynamic> json) => BlogPost(
   numLikes: (json['numLikes'] as num).toInt(),
   numComments: (json['numComments'] as num).toInt(),
   preview: json['preview'] as String,
+  authorImage: json['authorImage'] as String,
 );
 
 Map<String, dynamic> _$BlogPostToJson(BlogPost instance) => <String, dynamic>{
@@ -30,4 +31,5 @@ Map<String, dynamic> _$BlogPostToJson(BlogPost instance) => <String, dynamic>{
   'numLikes': instance.numLikes,
   'numComments': instance.numComments,
   'preview': instance.preview,
+  'authorImage': instance.authorImage,
 };

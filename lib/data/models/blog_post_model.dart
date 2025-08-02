@@ -14,6 +14,7 @@ class BlogPost {
   final int numLikes;
   final int numComments;
   final String preview;
+  final String authorImage;
 
   BlogPost({
     required this.postId,
@@ -25,6 +26,7 @@ class BlogPost {
     required this.numLikes,
     required this.numComments,
     required this.preview,
+    required this.authorImage,
   });
 
   factory BlogPost.fromJson(Map<String, dynamic> json) =>
@@ -51,6 +53,7 @@ class BlogPost {
         numLikes: data['numLikes'] ?? 0,
         numComments: data['numComments'] ?? 0,
         preview: data['preview'] ?? '',
+        authorImage: data['authorImage'] ?? '',
       );
     } catch (e) {
       throw Exception('Error deserializing blog post: $e\nData: $data');
@@ -67,6 +70,7 @@ class BlogPost {
     int? numLikes,
     int? numComments,
     String? preview,
+    String? authorImage,
   }) {
     return BlogPost(
       postId: postId ?? this.postId,
@@ -78,6 +82,7 @@ class BlogPost {
       numLikes: numLikes ?? this.numLikes,
       numComments: numComments ?? this.numComments,
       preview: preview ?? this.preview,
+      authorImage: authorImage ?? this.authorImage,
     );
   }
 }

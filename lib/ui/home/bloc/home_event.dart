@@ -17,9 +17,9 @@ class PublishPost extends HomeEvent {
 
 class LoadBlogs extends HomeEvent {
   final String category;
-  final bool isRefresh;
+  final bool categoryChange;
 
-  LoadBlogs({required this.category, this.isRefresh = false});
+  LoadBlogs({required this.category, required this.categoryChange});
 }
 
 class LoadBlogDetails extends HomeEvent {
@@ -164,4 +164,9 @@ class MarkNotificationAsRead extends HomeEvent {
 class LoadBlogSummary extends HomeEvent {
   final String postId;
   LoadBlogSummary(this.postId);
+}
+
+class GetUser extends HomeEvent {
+  final String? uid;
+  GetUser(this.uid);
 }

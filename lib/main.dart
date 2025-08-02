@@ -32,7 +32,7 @@ void main() async {
 
   if (kDebugMode) {
     await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
-    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
+    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8081);
     FirebaseFunctions.instance.useFunctionsEmulator('localhost', 5001);
     FirebaseStorage.instance.useStorageEmulator('localhost', 9199);
   }

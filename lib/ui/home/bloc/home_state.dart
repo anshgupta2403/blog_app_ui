@@ -15,7 +15,12 @@ final class PublishPostFailure extends HomeState {
   PublishPostFailure(this.message);
 }
 
-final class BlogsLoading extends HomeState {}
+final class BlogsLoading extends HomeState {
+  final List<BlogPost> oldBlogs;
+  final bool isFirstFetch;
+
+  BlogsLoading(this.oldBlogs, {this.isFirstFetch = false});
+}
 
 final class BlogsLoaded extends HomeState {
   final List<BlogPost> categoryBlogs;
@@ -216,3 +221,9 @@ class LoadBlogSummaryfailure extends HomeState {
   final String message;
   LoadBlogSummaryfailure(this.message);
 }
+
+class GetUserRequested extends HomeState {}
+
+class GetUserSuccess extends HomeState {}
+
+class GetUserFailure extends HomeState {}
