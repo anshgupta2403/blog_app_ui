@@ -2,8 +2,8 @@
   "relation": ["delegate_permission/common.handle_all_urls"],
   "target": {
     "namespace": "android_app",
-    "package_name": "com.example.blog_app",
+    "package_name": "com.ansh.blog_app",
     "sha256_cert_fingerprints":
-    ["20:88:A8:79:19:F2:2B:CE:E1:AE:B8:F7:97:48:33:71:F7:FE:72:FF:8E:A5:B2:C7:7C:B2:12:EA:FB:5B:BE:EF"]
+    ["83:2A:68:40:70:BF:20:66:D6:B7:41:1D:E5:F2:AF:33:2F:FE:F9:A6:03:C6:8B:95:FB:D4:50:D6:C8:6B:88:33"]
   }
 }]

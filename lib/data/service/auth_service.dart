@@ -4,6 +4,7 @@ import 'package:blog_app/data/service/firebase_notifications_service.dart';
 import 'package:blog_app/ui/core/utils/session_manager_utils.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
@@ -12,9 +13,9 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseNotificationsService _firebaseNotificationsService =
       FirebaseNotificationsService();
-  final serviceId = 'service_1f6rhrt';
-  final templateId = 'template_7em95vh';
-  final userId = 'BRJR8VQFj4REbSzLc';
+  final emailJSApiKey = dotenv.env['EMAILJS_API_KEY'];
+  final emailJSServiceId = dotenv.env['EMAILJS_SERVICE_ID'];
+  final emailJSTemplateId = dotenv.env['EMAILJS_TEMPLATE_ID'];
 
   Future<User?> signIn(String email, String password) async {
     final result = await _auth.signInWithEmailAndPassword(
@@ -88,9 +89,9 @@ class AuthService {
         'Content-Type': 'application/json',
       },
       body: json.encode({
-        'service_id': serviceId,
-        'template_id': templateId,
-        'user_id': userId,
+        'service_id': emailJSServiceId,
+        'template_id': emailJSTemplateId,
+        'user_id': emailJSApiKey,
         'template_params': {
           'email': email,
           'otp': otp,

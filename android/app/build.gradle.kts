@@ -16,7 +16,7 @@ dependencies {
 }
 
 android {
-    namespace = "com.example.blog_app"
+    namespace = "com.ansh.blog_app"
     compileSdk = 35
     ndkVersion = "27.0.12077973"
 
